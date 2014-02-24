@@ -1,0 +1,12 @@
+* text=auto
+
+*.png   binary
+*.jpg   binary
+*.gif   binary
+*.ico   binary
+
+*.so    binary
+*.pak   binary
+
+*.vcproj binary
+*.sln binary
