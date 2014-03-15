@@ -132,31 +132,10 @@ public:
 };
 
 
-//**************************************************
-//Screen
-//******************************************************
 
-class CScreen {
-public:
-	CScreen(): m_w(768), m_h(512), m_width(30.0), m_height(20.0),
-		m_center(0,0,0), m_normal(0,0,1){}
 
-public:
-	int m_w, m_h; // width and height  in pixels
-	float m_width, m_height; //width and height in world units (cm)
-	Vector3f m_center;
-	Vector3f m_normal;
-};
 
-//*************************************
-//Camera (eye)
-//******************************************
-class CCamera{
 
-public: 
-	Vector3f m_eye;
-	CScreen m_screen;
-};
 
 //****************************************************
 // color
@@ -225,6 +204,76 @@ public:
 	CColor m_color;    // light color
 };
 
+//*************************************
+//Camera (eye and screen and ray)
+//******************************************
+struct Pixel{
+	Vector3f m_coord;
+	CColor m_color;
+}Pixel_t;
+
+
+class CCamera {
+public:
+	CCamera(){}
+
+	// : m_w(768), m_h(512), m_width(30.0), m_height(20.0),
+	// 	m_center(0,0,0), m_normal(0,0,1){}
+
+	CCamera(Vector3f _eye, int _w, int _h, Vector3f LL, Vector3f UL, Vector3f LR, Vector3f UR)
+		:m_eye(_eye.x(), _eye.y(), _eye.z()),
+		m_w(_w), m_h(_h), 
+		m_width((LL-LR).norm()), m_height((UL-LL).norm()){
+			m_center=((LL+LR)/2.0+(UL+UR)/2.0)/2.0;
+
+			//make sure direction is right
+			//normal pointing toward eye
+			m_normal=(LL-LR).cross(LL-UL);
+			m_normal=m_normal/m_normal.norm();
+			
+			m_pixel=new Pixel[m_w*m_h];
+
+			float u_step=1.0/_w, v_step=1.0/_h;
+			float u=u_step/2.0, v=v_step/2.0;
+
+			for (int i=0; i<m_h; i++){
+				for(int j=0; j< m_w; j++){
+					m_pixel[i*m_w+j].m_coord=u*(v*LL+(1-v)*UL)+(1-u)*(v*LR+(1-v)*UR);
+					m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
+					m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
+					m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
+					u+=u_step;
+				}
+				v+=v_step;
+			}
+		}
+
+	void ColorPixel(int i, int j, CColor color){
+		m_pixel[i*m_w+j].m_color.m_rgb[0]=color.m_rgb[0];
+		m_pixel[i*m_w+j].m_color.m_rgb[1]=color.m_rgb[1];
+		m_pixel[i*m_w+j].m_color.m_rgb[2]=color.m_rgb[2];
+	}
+
+	virtual void shoot(){}
+
+
+
+	void DestroyCamera(){
+		delete[] m_pixel;
+	}
+
+public:
+	int m_w, m_h; // width and height  in pixels
+	float m_width, m_height; //width and height in world units (cm)
+	Vector3f m_center;
+	Vector3f m_normal;
+	Vector3f LL, UL, LR, UR;
+	Vector3f m_eye;
+	Pixel *m_pixel;
+
+};
+
+
 //****************************************************
 // shape 
 //****************************************************
@@ -284,7 +333,6 @@ public:
 // Global Variables
 //****************************************************
 
-CScreen g_viewport;
 CColor g_Ka, g_Kd, g_Ks;  // parameters 
 vector<CLight> g_lights;
 vector<C3DModel*> g_models; 
