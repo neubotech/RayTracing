@@ -1,4 +1,4 @@
-﻿#include <vector>
+#include <vector>
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -49,10 +49,113 @@ using namespace cimg_library;
 //****************************************************
 // Basic Classes
 //****************************************************
+// class Vector{
+// public:
+// 	Vector(float x, float y, float z)
+// public:
+// };
 
-class CViewport {
-  public:
-    int m_w, m_h; // width and height
+// class Point:: public Vector3f{
+// public:
+// 	Point(float x, float y, float z)
+// 	: m_coord(x, y, z){}
+
+// public:
+// 	Vector3f m_coord;
+// };
+
+// //all the m_coord are normalized to 1
+// class Normal{
+// public:
+// 	Normal(float x, float y, float z)
+// 	:m_coord(x,y,z){
+// 		m_coord=m_coord/m_coord.norm();
+// 	}
+// public:
+// 	Vector3f m_coord;
+// 	// Vector4f m_hcoord;
+// };
+
+//***************************************************
+//Ray
+//*********************************************
+
+class CRay{
+public: 
+	Ray(Vector3f pos, Vector3f dir, float t_min,float t_max)
+	:m_pos(pos.x(), pos.y(), pos.z()),
+	m_dir(dir.x(), dir.y(), dir.z()){
+		m_dir=m_dir/m_dir.norm();
+
+		m_t_min=t_min;
+		m_t_max=t_max;
+
+		// m_t=t_min;
+
+		m_ray_start=pos+t_min*dir;
+		m_ray_end=pos+t_max*dir;
+
+		// m_ray=m_ray_start;
+	}	
+
+	Vector3f Ray_t(float t){
+		if(t<m_t_min || t>m_t_max)
+			return m_pos+t*m_dir;
+		else
+			cerr<<"t outside of range"<< m_t_min
+				<<", "<< m_t_max <<endl;
+			exit(-1);
+	}
+
+	bool hasPoint(Vector3f point){
+		Vector3f dir_p=point-m_pos;
+
+		//please check??
+		return (dir_p-(dir_p).dot(m_dir)*m_dir).norm()==0;
+	}
+
+
+	bool hasPoint(Vector3f point, float threshold){
+		Vector3f dir_p=point-m_pos;
+
+		//please check??
+		return (dir_p-(dir_p).dot(m_dir)*m_dir).norm()<=threshold;
+	}
+
+public:
+	Vector3f m_pos, m_dir;
+	Vector3f m_ray_start, m_ray_end;
+	float m_t_min, m_t_max;
+
+	// float m_t;
+	// Vector3f m_ray;
+};
+
+
+//**************************************************
+//Screen
+//******************************************************
+
+class CScreen {
+public:
+	CScreen(): m_w(768), m_h(512), m_width(30.0), m_height(20.0),
+		m_center(0,0,0), m_normal(0,0,1){}
+
+public:
+	int m_w, m_h; // width and height  in pixels
+	float m_width, m_height; //width and height in world units (cm)
+	Vector3f m_center;
+	Vector3f m_normal;
+};
+
+//*************************************
+//Camera (eye)
+//******************************************
+class CCamera{
+
+public: 
+	Vector3f m_eye;
+	CScreen m_screen;
 };
 
 //****************************************************
@@ -81,59 +184,15 @@ public:
 	float m_rgb[3];
 };
 
-
-//****************************************************
-// 3d vector
-//****************************************************
-
-class CVec3 {
-public: 
-	CVec3() {
-		m_x = 0.0f; m_y = 0.0f; m_z = 0.0f; 
-	}
-
-	CVec3(float _x, float _y, float _z) {
-		m_x = _x; m_y = _y; m_z = _z; 
-	}
-
-	CVec3 Add(CVec3 _v) {
-		return CVec3(m_x + _v.m_x, m_y + _v.m_y, m_z + _v.m_z);
-	}
-
-	CVec3 Subtract(CVec3 _v) {
-		return CVec3(m_x - _v.m_x, m_y - _v.m_y, m_z - _v.m_z);
-	}
-
-	CVec3 Scale(float _s) { 
-		return CVec3(m_x * _s, m_y * _s, m_z * _s);
-	}
-
-	float Dot(CVec3 _v) {
-		return m_x * _v.m_x + m_y * _v.m_y + m_z * _v.m_z; 
-	}
-
-	CVec3 Cross(CVec3 _v) {
-		float x = m_y * _v.m_z - m_z * _v.m_y; // u2v3-u3v2 
-		float y = m_z * _v.m_x - m_x * _v.m_z; // u3v1-u1v3 
-		float z = m_x * _v.m_y - m_y * _v.m_x; // v1v2-u2v1
-		return CVec3(x, y, z);
-	}
-
-	float Norm() {
-		return sqrt(SQUARE(m_x) + SQUARE(m_y) + SQUARE(m_z)); 
-	}
-
-	CVec3 UnitVec() {
-		float n = Norm();
-		return Scale(1/(n+EPS));
-	}
-
-	void Print() {
-		printf("(x, y, z) = (%3.3f, %3.3f, %3.3f)\n", m_x, m_y, m_z);
-	}
-public: 
-	float m_x, m_y, m_z; 
+//********************************************
+//BRDF
+//***************************************************
+class CBRDF{
+public:
+	CColor ka, kd, ks, sp;
+	CColor kr;
 };
+
 
 //****************************************************
 // Light
@@ -229,7 +288,7 @@ public:
 // Global Variables
 //****************************************************
 
-CViewport g_viewport;
+CScreen g_viewport;
 CColor g_Ka, g_Kd, g_Ks;  // parameters 
 vector<CLight> g_lights;
 vector<C3DModel*> g_models; 
@@ -248,23 +307,29 @@ int main(int argc, char *argv[]){
 	Matrix3f m3;
 	m3 << 1, 2, 3, 4, 5, 6, 7, 8, 9;
 	Matrix4f m4=Matrix4f::Identity();
-	Vector4i v4(1,2,3,4);
-	cout<<"m3\n" << m3 << "\nm4:\n"
-		<<m4 << "\nv4:\n" <<v4<<endl;
 
-	CImg<unsigned char> image("lena.pgm"), visu(500,400,1,3,0);
-  const unsigned char red[] = { 255,0,0 }, green[] = { 0,255,0 }, blue[] = { 0,0,255 };
-  image.blur(2.5);
-  CImgDisplay main_disp(image,"Click a point"), draw_disp(visu,"Intensity profile");
-  while (!main_disp.is_closed() && !draw_disp.is_closed()) {
-    main_disp.wait();
-    if (main_disp.button() && main_disp.mouse_y()>=0) {
-      const int y = main_disp.mouse_y();
-      visu.fill(0).draw_graph(image.get_crop(0,y,0,0,image.width()-1,y,0,0),red,1,1,0,255,0);
-      visu.draw_graph(image.get_crop(0,y,0,1,image.width()-1,y,0,1),green,1,1,0,255,0);
-      visu.draw_graph(image.get_crop(0,y,0,2,image.width()-1,y,0,2),blue,1,1,0,255,0).display(draw_disp);
-      }
-    }
+	Vector3f p_ray(0,0,0), d_ray(1,1,0);
+	CRay ray(p_ray, d_ray, 1, 10);
+
+	cout<< ray.m_ray_start<< "\n\n" << ray.m_ray_end
+		<<"\n\n"<<ray.hasPoint(Vector3f(0.7,1.8,0), .1)<<endl;
+	// cout<<"m3\n" << m3 << "\nm4:\n"
+	// 	<<m4 << "\nv4:\n" <<N.m_coord<<endl;
+
+
+	// CImg<unsigned char> image("lena.pgm"), visu(500,400,1,3,0);
+ //  const unsigned char red[] = { 255,0,0 }, green[] = { 0,255,0 }, blue[] = { 0,0,255 };
+ //  image.blur(2.5);
+ //  CImgDisplay main_disp(image,"Click a point"), draw_disp(visu,"Intensity profile");
+ //  while (!main_disp.is_closed() && !draw_disp.is_closed()) {
+ //    main_disp.wait();
+ //    if (main_disp.button() && main_disp.mouse_y()>=0) {
+ //      const int y = main_disp.mouse_y();
+ //      visu.fill(0).draw_graph(image.get_crop(0,y,0,0,image.width()-1,y,0,0),red,1,1,0,255,0);
+ //      visu.draw_graph(image.get_crop(0,y,0,1,image.width()-1,y,0,1),green,1,1,0,255,0);
+ //      visu.draw_graph(image.get_crop(0,y,0,2,image.width()-1,y,0,2),blue,1,1,0,255,0).display(draw_disp);
+ //      }
+ //    }
   return 0;
 
 }
