@@ -82,7 +82,7 @@ using namespace cimg_library;
 
 class CRay{
 public: 
-	Ray(Vector3f pos, Vector3f dir, float t_min,float t_max)
+	CRay(Vector3f pos, Vector3f dir, float t_min,float t_max)
 	:m_pos(pos.x(), pos.y(), pos.z()),
 	m_dir(dir.x(), dir.y(), dir.z()){
 		m_dir=m_dir/m_dir.norm();
@@ -206,7 +206,7 @@ public:
 
 	CLight() {}
 
-	CLight(CVec3 _dir, CColor _color, ELightType _type) {
+	CLight(Vector3f _dir, CColor _color, ELightType _type) {
 		m_dir = _dir; m_color = _color; m_type =  _type; 
 	}
 
@@ -216,12 +216,12 @@ public:
 		else 
 			printf("Directional Light ");
 		printf("(x, y, z, R, G, B) = (%2.2f, %2.2f, %2.2f, %2.2f, %2.2f, %2.2f)\n", 
-			m_dir.m_x, m_dir.m_y, m_dir.m_z, m_color.m_rgb[0], m_color.m_rgb[1], m_color.m_rgb[2]);
+			m_dir.x(), m_dir.y(), m_dir.z(), m_color.m_rgb[0], m_color.m_rgb[1], m_color.m_rgb[2]);
 	}
 
 public: 
 	ELightType m_type;  // light type
-	CVec3 m_dir;        //  location/position/direction
+	Vector3f m_dir;        //  location/position/direction
 	CColor m_color;    // light color
 };
 
@@ -231,10 +231,10 @@ public:
 class C3DModel {
 public: 
 	//virtual CShape() = 0;
-	virtual CVec3 Norm(CVec3 _pos) = 0;
+	virtual Vector3f Norm(Vector3f _pos) = 0;
 	virtual bool IsVisible(float _x, float _y) = 0; 
 	virtual float Z(float _x, float _y) = 0;
-	virtual CVec3 Center() = 0;
+	virtual Vector3f Center() = 0;
 	virtual float Radius() = 0;
 public: 
 
@@ -243,27 +243,23 @@ public:
 class CSphere : public C3DModel {
 public: 
 	CSphere() {}
-	CSphere(CVec3 _center, float _radius) {
+	CSphere(Vector3f _center, float _radius) {
 		m_center = _center; 
 		m_radius = _radius;
 	}
 
-	CVec3 Norm(CVec3 _pos) {
-		return _pos.Subtract(m_center).UnitVec();
-	}
-
 	bool IsVisible(float _x, float _y) {
-		return SQUARE(_x-m_center.m_x) + SQUARE(_y-m_center.m_y) < SQUARE(m_radius);
+		return SQUARE(_x-m_center.x()) + SQUARE(_y-m_center.y()) < SQUARE(m_radius);
 	}
 
 	float Z(float _x, float _y) {
-		return sqrt(SQUARE(m_radius) - SQUARE(_x-m_center.m_x) - SQUARE(_y-m_center.m_y))+m_center.m_z; 
+		return sqrt(SQUARE(m_radius) - SQUARE(_x-m_center.x()) - SQUARE(_y-m_center.y()))+m_center.z(); 
 	}
 
 	float Radius() { return m_radius;}
-	CVec3 Center() { return m_center; }
+	Vector3f Center() { return m_center; }
 public: 
-	CVec3 m_center; 
+	Vector3f m_center; 
 	float m_radius; 
 };
 
@@ -297,7 +293,7 @@ bool g_isMultiple = false;
 bool g_isToon = false;  
 bool g_isSave = true; 
 
-CVec3 d; //anisotropic fibrics direction vector
+Vector3f d; //anisotropic fibrics direction vector
 bool g_isAniso = false;
 
 
@@ -308,11 +304,12 @@ int main(int argc, char *argv[]){
 	m3 << 1, 2, 3, 4, 5, 6, 7, 8, 9;
 	Matrix4f m4=Matrix4f::Identity();
 
-	Vector3f p_ray(0,0,0), d_ray(1,1,0);
+	Vector3f p_ray(0,0,0), d_ray(1,1,0), p_point(1.9, 1.9, 0);
 	CRay ray(p_ray, d_ray, 1, 10);
 
 	cout<< ray.m_ray_start<< "\n\n" << ray.m_ray_end
-		<<"\n\n"<<ray.hasPoint(Vector3f(0.7,1.8,0), .1)<<endl;
+		<<"\n\n"<<p_point<<"\n\n"
+		<<ray.hasPoint(p_point, .1)<<endl;
 	// cout<<"m3\n" << m3 << "\nm4:\n"
 	// 	<<m4 << "\nv4:\n" <<N.m_coord<<endl;
 
