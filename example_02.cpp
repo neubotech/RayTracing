@@ -172,6 +172,24 @@ public:
 	CColor kr;
 };
 
+//**********************************
+//LocalGeo
+//**************************************
+
+class CLocalGeo{
+public:
+	CLocalGeo(){}
+	CLocalGeo(Vector3f _pos, Vector3f _normal)
+	:m_pos(_pos.x(), _pos.y(), _pos.z()),
+	m_normal(_normal.x(), _normal.y(), _normal.z())
+	{
+		m_normal=m_normal/m_normal.norm();
+	}
+public:
+	Vector3f m_pos;
+	Vector3f m_normal;
+};
+
 
 //****************************************************
 // Light
