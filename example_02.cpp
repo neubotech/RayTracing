@@ -31,26 +31,27 @@
 #include "Cimg.h"
 #endif // _WIN32
 
+using namespace std;
+using namespace Eigen;
+using namespace cimg_library;
+
 
 //****************************************************
 // macros and inline functions
 //****************************************************
+#define EPS 1e-10
+#ifdef _WIN32
+#define INF std::numeric_limits<float>::infinity()
+#endif // _WIN32
 
-#define PI 3.14159265  // Should be used from mathlib
-#define EPS 1e-10       
 #define DELETE_OBJECT(x)	if ((x)) { delete (x); (x) = NULL; }   // delete a class object
 #define DELETE_ARRAY(x)		if ((x)) { delete [] (x); (x) = NULL; } // delete an array
 #define FOR(i,n) for( int i=0; i<n; i++ )                           // for loop 
 #define FOR_u(i, n) for (size_t i = 0; i < n; i++)                  // for loop 
 #define SQUARE(x) ((x)*(x))
-#define INF (float)1e30
-
 inline float sqr(float x) { return x*x; }
 typedef unsigned char uchar; 
-using namespace std;
-using namespace Eigen;
-using namespace cimg_library;
-
+typedef Vector3f V3f; 
 
 //****************************************************
 // Basic Classes
@@ -144,6 +145,174 @@ public:
 
 
 
+//****************************************************
+// LocalGeo
+//****************************************************
+//Notes: Store the local geometry at the intersection point. May need to store
+//		other quantities (eg. texture coordinate) in a more complicated raytracer.
+class CLocalGeo {
+public: 
+	Vector3f m_pos;   // point 
+	Vector3f m_n;     // normal (unit vector)
+};
+
+//****************************************************
+// shape
+//****************************************************
+void TestShape() {
+
+}
+
+class CShape {
+public:
+	virtual bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local) = 0; 
+	virtual bool intersectP(CRay& _ray) = 0; 
+};
+
+class CSphere : public CShape {
+public: 
+	CSphere(V3f _c, float _r) {
+		m_c = _c;  m_r = _r; m_r2 = m_r * m_r; 
+	}
+
+	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
+		float t; 
+		V3f oc = _ray.m_pos - m_c; 
+		float a = _ray.m_dir.dot(_ray.m_dir); // dir should be unit
+		float b = _ray.m_dir.dot(oc);
+		float c = oc.dot(oc) - m_r2; 
+		float delta = b * b  - a * c; 
+		if (delta < 0)   // no solution 
+			return false; 
+		else if (delta > -EPS && delta < EPS) {  // one solution
+			t = - b / a;
+			if (t > _ray.m_t_max || t < _ray.m_t_min)  // out of range
+				return false; 
+		} else {   // two solutions 
+			float deltasqrt = sqrt(delta);
+			float t1 = (- b - deltasqrt) / a;
+			float t2 = (- b + deltasqrt) / a;
+			t = _ray.m_t_max + 1; 
+			if (t1 <= _ray.m_t_max && t1 >= _ray.m_t_min)
+				t = min(t, t1);
+
+			if (t2 <= _ray.m_t_max && t2 >= _ray.m_t_min)
+				t = min(t, t2);
+			if (t > _ray.m_t_max)   // both out of range
+				return false; 
+		}
+
+		// pass t, compute CLocalGeo
+		*_thit = t; 
+		_local->m_pos = _ray.Ray_t(t);
+		_local->m_n = _local->m_pos - m_c; 
+		_local->m_n = _local->m_n / _local->m_n.norm(); 
+		return true; 
+	} 
+	
+	bool intersectP(CRay& _ray) {
+		V3f oc = _ray.m_pos - m_c; 
+		float a = _ray.m_dir.dot(_ray.m_dir); // dir should be unit
+		float b = _ray.m_dir.dot(oc);
+		float c = oc.dot(oc) - m_r2; 
+		float delta = b * b  - a * c; 
+		if (delta < 0)   // no solution 
+			return false; 
+		else if (delta > -EPS && delta < EPS) {  // one solution
+			float t = - b / a;
+			if (t > _ray.m_t_max || t < _ray.m_t_min)  // out of range
+				return false; 
+		} else {   // two solutions 
+			float deltasqrt = sqrt(delta);
+			float t1 = (- b - deltasqrt) / a;
+			float t2 = (- b + deltasqrt) / a;
+			if (t1 > _ray.m_t_max || t1 < _ray.m_t_min)
+				return false; 
+
+			if (t2 > _ray.m_t_max || t2 < _ray.m_t_min)
+				return false; 
+		}
+
+		return true; 
+	}
+
+private: 
+  	V3f m_c;     // center
+	float m_r;  // radius
+	float m_r2; // radius * radius;
+};
+
+
+class CTriangle : public CShape {
+private: 
+	float det(V3f _V0, V3f _V1, V3f _V2) {
+		float d = _V0.x() * _V1.y() * _V2.z() 
+			+ _V1.x() * _V2.y() * _V0.z()
+			+ _V2.x() * _V0.y() * _V1.z()
+			- _V2.x() * _V1.y() * _V0.z()
+			- _V1.x() * _V0.y() * _V2.z()
+			- _V0.x() * _V2.y() * _V1.z();
+		return d; 
+	}
+
+public: 
+	CTriangle(V3f _V0, V3f _V1, V3f _V2) {
+		m_V0 = _V0; m_V1 = _V1; m_V2 = _V2; 
+	}
+
+	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
+		V3f E1 = m_V0 - m_V1; 
+		V3f E2 = m_V0 - m_V2; 
+		V3f S = m_V0 - _ray.m_pos;
+		float d = det(_ray.m_dir, E1, E2);
+		if (d < EPS && d > -EPS)
+			return false; 
+		float d1 = det(S, E1, E2);
+		float t = d1 / d; 
+		if (t < _ray.m_t_min || t > _ray.m_t_max)
+			return false; 
+		float d2 = det(_ray.m_dir, S, E2);
+		float beta = d2 / d; 
+		if (beta < 0 || beta > 1)
+			return false; 
+		float d3 = det(_ray.m_dir, E1, S);
+		float gamma = d3 / d; 
+		if (gamma < 0 || gamma > 1 || beta + gamma > 1)
+			return false; 
+
+		*_thit = t;
+		_local->m_pos = _ray.Ray_t(t);
+		_local->m_n = m_V0.cross(m_V1);
+		_local->m_n = _local->m_n / _local->m_n.norm();
+		return true; 
+	} 
+
+	bool intersectP(CRay& _ray) {
+		V3f E1 = m_V0 - m_V1; 
+		V3f E2 = m_V0 - m_V2; 
+		V3f S = m_V0 - _ray.m_pos;
+		float d = det(_ray.m_dir, E1, E2);
+		if (d < EPS && d > -EPS)   // zero 
+			return false; 
+		float d1 = det(S, E1, E2);
+		float t = d1 / d; 
+		if (t < _ray.m_t_min || t > _ray.m_t_max)  // check t range 
+			return false; 
+		float d2 = det(_ray.m_dir, S, E2);
+		float beta = d2 / d; 
+		if (beta < 0 || beta > 1)                 // check beta
+			return false; 
+		float d3 = det(_ray.m_dir, E1, S);
+		float gamma = d3 / d;                       
+		if (gamma < 0 || gamma > 1 || beta + gamma > 1)   // check gamma
+			return false; 
+		
+		return true; 
+	}
+
+private: 
+	V3f m_V0, m_V1, m_V2;     // 3D points
+};
 
 
 
@@ -175,7 +344,7 @@ public:
 };
 
 //********************************************
-//BRDF
+//BRDF and Material
 //***************************************************
 class CBRDF{
 public:
@@ -183,22 +352,151 @@ public:
 	CColor kr;
 };
 
+//Notes: Class for storing material. For this example, it just returns a constant
+//	material regardless of what local is. Later on, when we want to support
+//	texture mapping, this need to be modified.
+class CMaterial {
+public: 
+	CMaterial() {
+		// set constant BRDF 
+	}
+
+	void getBRDF(CLocalGeo& _local, CBRDF* _brdf) {
+		*_brdf = m_constantBRDF;
+	}
+
+private: 
+	CBRDF m_constantBRDF;
+};
+
+
+//****************************************************
+// primitive
+//****************************************************
+class CPrimitive; 
+
+class CIntersection {
+public: 
+	CLocalGeo m_localGeo;
+	CPrimitive* m_prim; 
+};
+
+
+class CTransformation {
+public: 
+	V3f Vector(V3f _v) {return _v; }
+	V3f Point(V3f _p) { return _p; }
+	V3f Normal(V3f _n) { return _n; }
+	CRay Ray(CRay _ray) { return _ray; }
+	CLocalGeo LocalGeo(CLocalGeo _localGeo) { return _localGeo; }
+};
+
+
+
+class CPrimitive {
+public: 
+	virtual bool intersect(CRay& _ray, float* _thit, CIntersection* _in) = 0;
+	virtual bool intersectP(CRay& _ray) = 0;
+};
+
+class CGeometricPrimitive : public CPrimitive {
+public: 
+	bool intersect(CRay& _ray, float* _thit, CIntersection* _in) {
+		CRay oray = m_worldToObj.Ray(_ray);
+		CLocalGeo olocal; 
+		if (!m_shape->intersect(oray, _thit, &olocal)) 
+			return false;
+		_in->m_prim = this;
+		_in->m_localGeo = m_objToWorld.LocalGeo(olocal);
+		return true; 
+	}
+
+	bool intersectP(CRay& _ray) {
+		CRay oray = m_worldToObj.Ray(_ray);
+		return m_shape->intersectP(oray); 
+	}
+
+	void getBRDF(CLocalGeo& local, CBRDF* brdf) {
+		m_mat->getBRDF(local, brdf);
+	}
+
+private: 
+	CTransformation m_objToWorld; 
+	CTransformation m_worldToObj; 
+	CShape* m_shape; 
+	CMaterial* m_mat; 
+
+};
+
+
+class CAggregatePrimitive : public CPrimitive {
+public: 
+	CAggregatePrimitive(vector<CPrimitive*> _primVec) {
+		m_primVec = _primVec; 
+		m_numPrims = (int)m_primVec.size();
+	}
+
+	bool intersect(CRay& _ray, float* _thit, CIntersection* _in) {
+		float min_t = _ray.m_t_max + 1; 
+		CIntersection* min_in = NULL; 
+		bool flag = false; 
+		FOR (i, m_numPrims) {
+			float t = 0.0f; 
+			CIntersection* in = new CIntersection(); 
+			if (m_primVec[i]->intersect(_ray, &t, in)) {
+				flag = true; 
+				if (t <= min_t) {
+					min_t = t; 
+					DELETE_OBJECT(min_in);  //BUG?
+					min_in = in;
+				}
+			}
+		}
+
+		return flag; 
+	}
+
+	bool intersectP(CRay& _ray) {
+		bool flag = false; 
+		FOR (i, m_numPrims)
+			flag = flag || m_primVec[i]->intersectP(_ray);
+		return flag; 
+	}
+	
+	// This should never get called, because in->primitive will
+	// never be an aggregate primitive
+	void getBRDF(CLocalGeo& _local, CBRDF* _brdf) {
+		printf("getBRDF should never get called\n");
+		exit(-1);
+	}
+
+private: 
+	int m_numPrims; 
+	vector<CPrimitive*> m_primVec; 
+
+};
+
+// TO-DO 
+class CBSPPrimitive : public CPrimitive {
+
+};
+
 //**********************************************
 //CLocalGeo
 //*********************************************************
-class CLocalGeo{
-public:
-	CLocalGeo(){}
-
-	CLocalGeo(Vector3f _pos, Vector3f _normal)
-	:m_pos(_pos.x(), _pos.y(), _pos.z()),
-	m_normal(_normal.x(), _normal.y(), _normal.z()){
-		m_normal=m_normal/m_normal.norm();
-	}
-public:
-	Vector3f m_pos;
-	Vector3f m_normal;
-};
+//class CLocalGeo{
+//public:
+//	CLocalGeo(){}
+//
+//	CLocalGeo(Vector3f _pos, Vector3f _normal)
+//	:m_pos(_pos.x(), _pos.y(), _pos.z()),
+//	m_normal(_normal.x(), _normal.y(), _normal.z()){
+//		m_normal=m_normal/m_normal.norm();
+//	}
+//public:
+//	Vector3f m_pos;
+//	Vector3f m_normal;
+//};
 
 
 //****************************************************
@@ -428,40 +726,40 @@ public:
 //****************************************************
 // shape 
 //****************************************************
-class C3DModel {
-public: 
-	//virtual CShape() = 0;
-	virtual Vector3f Norm(Vector3f _pos) = 0;
-	virtual bool IsVisible(float _x, float _y) = 0; 
-	virtual float Z(float _x, float _y) = 0;
-	virtual Vector3f Center() = 0;
-	virtual float Radius() = 0;
-public: 
+//class C3DModel {
+//public: 
+//	//virtual CShape() = 0;
+//	virtual Vector3f Norm(Vector3f _pos) = 0;
+//	virtual bool IsVisible(float _x, float _y) = 0; 
+//	virtual float Z(float _x, float _y) = 0;
+//	virtual Vector3f Center() = 0;
+//	virtual float Radius() = 0;
+//public: 
+//
+//};
 
-};
-
-class CSphere : public C3DModel {
-public: 
-	CSphere() {}
-	CSphere(Vector3f _center, float _radius) {
-		m_center = _center; 
-		m_radius = _radius;
-	}
-
-	bool IsVisible(float _x, float _y) {
-		return SQUARE(_x-m_center.x()) + SQUARE(_y-m_center.y()) < SQUARE(m_radius);
-	}
-
-	float Z(float _x, float _y) {
-		return sqrt(SQUARE(m_radius) - SQUARE(_x-m_center.x()) - SQUARE(_y-m_center.y()))+m_center.z(); 
-	}
-
-	float Radius() { return m_radius;}
-	Vector3f Center() { return m_center; }
-public: 
-	Vector3f m_center; 
-	float m_radius; 
-};
+//class CSphere : public C3DModel {
+//public: 
+//	CSphere() {}
+//	CSphere(Vector3f _center, float _radius) {
+//		m_center = _center; 
+//		m_radius = _radius;
+//	}
+//
+//	bool IsVisible(float _x, float _y) {
+//		return SQUARE(_x-m_center.x()) + SQUARE(_y-m_center.y()) < SQUARE(m_radius);
+//	}
+//
+//	float Z(float _x, float _y) {
+//		return sqrt(SQUARE(m_radius) - SQUARE(_x-m_center.x()) - SQUARE(_y-m_center.y()))+m_center.z(); 
+//	}
+//
+//	float Radius() { return m_radius;}
+//	Vector3f Center() { return m_center; }
+//public: 
+//	Vector3f m_center; 
+//	float m_radius; 
+//};
 
 
 //****************************************************
@@ -470,7 +768,7 @@ public:
 
 CColor g_Ka, g_Kd, g_Ks;  // parameters 
 vector<CLight> g_lights;
-vector<C3DModel*> g_models; 
+//vector<C3DModel*> g_models; 
 float g_v; 
 bool g_isMultiple = false; 
 bool g_isToon = false;  
