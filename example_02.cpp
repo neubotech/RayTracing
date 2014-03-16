@@ -315,7 +315,7 @@ private:
 					// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
 					// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
 					// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
-					cout<<m_sample[i*m_w*over_sample_ratio+j]<<endl;
+					// cout<<m_sample[i*m_w*over_sample_ratio+j]<<endl;
 					u+=u_step;
 					
 				}
@@ -330,21 +330,28 @@ private:
 	//////////////////////////////////////////////
 			// jitter_over_sample
 /////////////////////////////////////////////
+	float Rand(float step){
+		return ((((float) rand() / RAND_MAX)-.5)*step); //bound
+	}
 	bool JitterSampler(Vector3f* m_sample, int over_sample_ratio){
 
 			float u_step=1.0f/m_w/over_sample_ratio;
 			float v_step=1.0f/m_h/over_sample_ratio;
 
 			float u=u_step/2.0f, v=v_step/2.0f;
+			float u_r=u+Rand(u_step), v_r=v+Rand(v_step);
 // cout<<LL<<UL<<LR<<UR<<endl;
 			for (int i=0; i<m_h*over_sample_ratio; i++){
 				for(int j=0; j< m_w*over_sample_ratio; j++){
-					m_sample[i*m_w*over_sample_ratio+j]=u*(v*UR+(1-v)*LR)+(1-u)*(v*UL+(1-v)*LL);
+					m_sample[i*m_w*over_sample_ratio+j]=u_r*(v_r*UR+(1-v_r)*LR)+(1-u_r)*(v_r*UL+(1-v_r)*LL);
 					// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
 					// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
 					// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
-					// cout<<m_sample[i*m_w*m_over_sample_ratio+j]<<endl;
+					// cout<<m_sample[i*m_w*over_sample_ratio+j]<<endl;
 					u+=u_step;
+					u_r=u+Rand(u_step);
+					v_r=v+Rand(v_step);
+					// cout<<u_step<<", "<<v_step<<endl;
 					
 				}
 				// cout<<"u: "<<u << ", "<<v<<endl;
@@ -353,6 +360,8 @@ private:
 			}
 			return true;
 	}
+
+
 
 public:
 
@@ -494,7 +503,8 @@ int main(int argc, char *argv[]){
 		LR(10, -10, 0), UR(10, 10, 0);
 	int over_sample_ratio=2;
 	CCamera camera(eye, w, h, LL, UL, LR, UR);
-	camera.Sample(1, over_sample_ratio, CCamera::OverS);
+	// camera.Sample(1, over_sample_ratio, CCamera::OverS);
+	camera.Sample(1, over_sample_ratio, CCamera::JitterS);
 
 	// cout<<"m3\n" << m3 << "\nm4:\n"
 	// 	<<m4 << "\nv4:\n" <<N.m_coord<<endl;
