@@ -40,6 +40,8 @@ using namespace cimg_library;
 // macros and inline functions
 //****************************************************
 #define EPS 1e-10
+#define NUM_DEPTH 3
+#define NUM_LIGHTS 4
 #ifdef _WIN32
 #define INF std::numeric_limits<float>::infinity()
 #endif // _WIN32
@@ -49,7 +51,6 @@ using namespace cimg_library;
 #define FOR(i,n) for( int i=0; i<n; i++ )                           // for loop 
 #define FOR_u(i, n) for (size_t i = 0; i < n; i++)                  // for loop 
 #define SQUARE(x) ((x)*(x))
-#define INF (float)1e50
 inline float sqr(float x) { return x*x; }
 typedef unsigned char uchar; 
 typedef Vector3f V3f; 
@@ -90,6 +91,7 @@ typedef Vector3f V3f;
 
 class CRay{
 public: 
+	CRay() {}
 	CRay(Vector3f pos, Vector3f dir, float t_min,float t_max)
 	:m_pos(pos.x(), pos.y(), pos.z()),
 	m_dir(dir.x(), dir.y(), dir.z()){
@@ -349,8 +351,9 @@ public:
 //***************************************************
 class CBRDF{
 public:
-	CColor ka, kd, ks, sp;
+	CColor ka, kd, ks;
 	CColor kr;
+	float p; 
 };
 
 //Notes: Class for storing material. For this example, it just returns a constant
@@ -398,6 +401,7 @@ class CPrimitive {
 public: 
 	virtual bool intersect(CRay& _ray, float* _thit, CIntersection* _in) = 0;
 	virtual bool intersectP(CRay& _ray) = 0;
+	virtual void getBRDF(CLocalGeo& local, CBRDF* brdf) = 0;
 };
 
 class CGeometricPrimitive : public CPrimitive {
@@ -500,6 +504,7 @@ class CBSPPrimitive : public CPrimitive {
 //};
 
 
+
 //****************************************************
 // Light
 //****************************************************
@@ -512,7 +517,7 @@ public:
 
 	CLight() {}
 
-	CLight(Vector3f _dir, CColor _color, ELightType _type) {
+	CLight(V3f _dir, CColor _color, ELightType _type) {
 		m_dir = _dir; m_color = _color; m_type =  _type; 
 	}
 
@@ -525,12 +530,132 @@ public:
 			m_dir.x(), m_dir.y(), m_dir.z(), m_color.m_rgb[0], m_color.m_rgb[1], m_color.m_rgb[2]);
 	}
 
+	// normalize light dir vector
+	void generateLightRay(CLocalGeo& local, CRay* lray, CColor* lcolor) {
+		*lcolor = m_color;
+		if (m_type == Point) {
+			
+		} 
+
+		if (m_type == Directional) {
+
+		}
+	}
+
 public: 
 	ELightType m_type;  // light type
 	Vector3f m_dir;        //  location/position/direction
 	CColor m_color;    // light color
 };
 
+
+class CRayTracer {
+
+private: 
+	CPrimitive* m_prim;
+	vector<CLight> m_lights; 
+
+private: 
+	CColor renderAmbientTerm(CRay& _ray, CColor& _rayColor, CColor& _Ka) {
+		CColor c;
+		FOR (k, 3) 
+			c.m_rgb[k] = _Ka.m_rgb[k] * _rayColor.m_rgb[k];
+		return c; 
+	}
+
+	CColor renderDiffuseTerm(CRay& _ray, CColor& _rayColor, CColor& _Kd, V3f& _n) {
+		CColor c;
+		float dot = _n.dot(_ray.m_dir);
+		/*if (dot > 0.0) {
+			_light.m_dir.UnitVec().Print();
+			_n.Print();
+		}*/
+		dot = max(dot, 0.0f);
+		//printf("dot = %2.2f\n", dot);
+		FOR (k, 3)
+			c.m_rgb[k] = _Kd.m_rgb[k] * dot * _rayColor.m_rgb[k];
+
+		return c; 
+	}
+
+	CColor renderSpecularTerm(CRay& _ray, CColor& _rayColor, CColor& _Ks, V3f& _n, V3f& _v, float _p) {
+		CColor c;
+		_ray.m_dir = _ray.m_dir;
+		V3f r = (_n * 2 *_ray.m_dir.dot(_n))- _ray.m_dir;
+		float dot = pow(max(r.dot(_v),0.0f), _p);
+
+		FOR (k, 3) 
+			c.m_rgb[k] = _Ks.m_rgb[k] * dot * _rayColor.m_rgb[k];
+
+		return c; 
+	}
+
+	CColor shading(CLocalGeo& _local, CBRDF& _brdf, CRay& _ray, CColor& _rayColor) {
+		CColor c_all(0.0f, 0.0f, 0.0f);
+
+		CColor c_ambient = renderAmbientTerm(_ray, _rayColor, _brdf.ka); 
+		c_all = c_all.Add(c_ambient);
+
+		CColor c_diffuse = renderDiffuseTerm(_ray, _rayColor, _brdf.kd, _local.m_n);
+		c_all = c_all.Add(c_diffuse);
+
+		CColor c_specular = renderSpecularTerm(_ray, _rayColor, _brdf.ks, _local.m_n, _local.m_pos, _brdf.p);
+		c_all = c_all.Add(c_specular);
+		return c_all; 
+	}
+
+	CRay createReflectRay(CLocalGeo& _local, CRay& _ray) {
+		V3f n = _local.m_n;
+		V3f r = (n * 2 *_ray.m_dir.dot(n))- _ray.m_dir;
+		return CRay(_local.m_pos, r, EPS, INF);
+	}
+
+public: 
+	void trace(CRay& ray, int depth, CColor* color) {
+		if (depth > NUM_DEPTH) {
+			// Make the color black and return
+			color->m_rgb[0] = 0.0; 
+			color->m_rgb[1] = 0.0; 
+			color->m_rgb[2] = 0.0; 
+			return; 
+		}
+
+		float thit; 
+		CIntersection in;
+		if (!m_prim->intersect(ray, &thit, &in)) {
+			color->m_rgb[0] = 0.0; 
+			color->m_rgb[1] = 0.0; 
+			color->m_rgb[2] = 0.0; 
+			return; 
+		}
+
+		CBRDF brdf; 
+		in.m_prim->getBRDF(in.m_localGeo, &brdf);
+		FOR (i, NUM_LIGHTS) {
+			CRay lray; 
+			CColor lcolor; 
+			m_lights[i].generateLightRay(in.m_localGeo, &lray, &lcolor);
+			if (!m_prim->intersectP(lray)) { //If not, do shading calculation for this light source
+				CColor c = shading(in.m_localGeo, brdf, lray, lcolor);
+				*color = color->Add(c);
+			}
+		}
+
+		// Handle mirror reflection
+		if (brdf.kr.m_rgb[0] > 0 
+			|| brdf.kr.m_rgb[1] > 0 
+			|| brdf.kr.m_rgb[2] > 0) {
+			CRay reflectRay = createReflectRay(in.m_localGeo, ray);
+			//Make a recursive call to trace the reflected ray
+			CColor tempColor; 
+			trace(reflectRay, depth+1, &tempColor);
+			color->m_rgb[0] += tempColor.m_rgb[0] * brdf.kr.m_rgb[0];
+			color->m_rgb[1] += tempColor.m_rgb[1] * brdf.kr.m_rgb[1];
+			color->m_rgb[2] += tempColor.m_rgb[2] * brdf.kr.m_rgb[2];
+		}
+
+	}
+};
 //*************************************
 //Camera (eye and screen and ray)
 //******************************************
@@ -560,13 +685,13 @@ public:
 			//normal pointing toward eye
 			m_normal=(LL-LR).cross(LL-UL);
 			m_normal=m_normal/m_normal.norm();
-			
+
 			// m_sample=new Vector3f[m_w*m_h*m_over_sample_ratio*m_over_sample_ratio];
 			m_pixel=new Pixel[m_w*m_h];
 
-//////////////////////////////////////////
+			//////////////////////////////////////////
 			//pixel coordinates and color initialization
-//////////////////////////////////////////
+			//////////////////////////////////////////
 
 
 			float u_step=1.0f/m_w;
@@ -588,7 +713,7 @@ public:
 				u=u_step/2.0f;
 				v+=v_step;
 			}
-		}
+	}
 
 	void ColorPixel(int i, int j, CColor color){
 		m_pixel[i*m_w+j].m_color.m_rgb[0]=color.m_rgb[0];
@@ -599,65 +724,65 @@ public:
 private:
 
 
-//////////////////////////////////////////////
-			// over_sample
-/////////////////////////////////////////////
+	//////////////////////////////////////////////
+	// over_sample
+	/////////////////////////////////////////////
 	bool OverSampler(Vector3f* m_sample, int over_sample_ratio){
-			float u_step=1.0f/m_w/over_sample_ratio;
-			float v_step=1.0f/m_h/over_sample_ratio;
+		float u_step=1.0f/m_w/over_sample_ratio;
+		float v_step=1.0f/m_h/over_sample_ratio;
 
-			float u=u_step/2.0f, v=v_step/2.0f;
-// cout<<LL<<UL<<LR<<UR<<endl;
-			for (int i=0; i<m_h*over_sample_ratio; i++){
-				for(int j=0; j< m_w*over_sample_ratio; j++){
-					m_sample[i*m_w*over_sample_ratio+j]=u*(v*UR+(1-v)*LR)+(1-u)*(v*UL+(1-v)*LL);
-					// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
-					// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
-					// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
-					// cout<<m_sample[i*m_w*over_sample_ratio+j]<<endl;
-					u+=u_step;
-					
-				}
-				// cout<<"u: "<<u << ", "<<v<<endl;
-				u=u_step/2.0f;
-				v+=v_step;
+		float u=u_step/2.0f, v=v_step/2.0f;
+		// cout<<LL<<UL<<LR<<UR<<endl;
+		for (int i=0; i<m_h*over_sample_ratio; i++){
+			for(int j=0; j< m_w*over_sample_ratio; j++){
+				m_sample[i*m_w*over_sample_ratio+j]=u*(v*UR+(1-v)*LR)+(1-u)*(v*UL+(1-v)*LL);
+				// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
+				// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
+				// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
+				// cout<<m_sample[i*m_w*over_sample_ratio+j]<<endl;
+				u+=u_step;
+
 			}
-			return true;
+			// cout<<"u: "<<u << ", "<<v<<endl;
+			u=u_step/2.0f;
+			v+=v_step;
+		}
+		return true;
 	}
 
 
 	//////////////////////////////////////////////
-			// jitter_over_sample
-/////////////////////////////////////////////
+	// jitter_over_sample
+	/////////////////////////////////////////////
 	float Rand(float step){
 		return ((((float) rand() / RAND_MAX)-.5)*step); //bound
 	}
 	bool JitterSampler(Vector3f* m_sample, int over_sample_ratio){
 
-			float u_step=1.0f/m_w/over_sample_ratio;
-			float v_step=1.0f/m_h/over_sample_ratio;
+		float u_step=1.0f/m_w/over_sample_ratio;
+		float v_step=1.0f/m_h/over_sample_ratio;
 
-			float u=u_step/2.0f, v=v_step/2.0f;
-			float u_r=u+Rand(u_step), v_r=v+Rand(v_step);
-// cout<<LL<<UL<<LR<<UR<<endl;
-			for (int i=0; i<m_h*over_sample_ratio; i++){
-				for(int j=0; j< m_w*over_sample_ratio; j++){
-					m_sample[i*m_w*over_sample_ratio+j]=u_r*(v_r*UR+(1-v_r)*LR)+(1-u_r)*(v_r*UL+(1-v_r)*LL);
-					// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
-					// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
-					// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
-					// cout<<m_sample[i*m_w*over_sample_ratio+j]<<endl;
-					u+=u_step;
-					u_r=u+Rand(u_step);
-					v_r=v+Rand(v_step);
-					// cout<<u_step<<", "<<v_step<<endl;
-					
-				}
-				// cout<<"u: "<<u << ", "<<v<<endl;
-				u=u_step/2.0f;
-				v+=v_step;
+		float u=u_step/2.0f, v=v_step/2.0f;
+		float u_r=u+Rand(u_step), v_r=v+Rand(v_step);
+		// cout<<LL<<UL<<LR<<UR<<endl;
+		for (int i=0; i<m_h*over_sample_ratio; i++){
+			for(int j=0; j< m_w*over_sample_ratio; j++){
+				m_sample[i*m_w*over_sample_ratio+j]=u_r*(v_r*UR+(1-v_r)*LR)+(1-u_r)*(v_r*UL+(1-v_r)*LL);
+				// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
+				// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
+				// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
+				// cout<<m_sample[i*m_w*over_sample_ratio+j]<<endl;
+				u+=u_step;
+				u_r=u+Rand(u_step);
+				v_r=v+Rand(v_step);
+				// cout<<u_step<<", "<<v_step<<endl;
+
 			}
-			return true;
+			// cout<<"u: "<<u << ", "<<v<<endl;
+			u=u_step/2.0f;
+			v+=v_step;
+		}
+		return true;
 	}
 
 
@@ -674,7 +799,7 @@ public:
 		}
 		else
 			cerr<<"wrong sampler type, either: OverS or JitterS"<<endl;
-			return false;
+		return false;
 
 		Vector3f pos, dir;
 		float t_min, t_max;
@@ -692,10 +817,10 @@ public:
 
 						// temp.add(RayTracer.trace(ray, depth));
 					}
-				m_pixel[i*m_w+j].m_color.Add(temp);
-				// m_pixel[i*m_w+j].m_color.Print();
-		}
-		return true;
+					m_pixel[i*m_w+j].m_color.Add(temp);
+					// m_pixel[i*m_w+j].m_color.Print();
+			}
+			return true;
 	}
 
 	bool Film(){
@@ -728,10 +853,9 @@ public:
 	// int m_over_sample_ratio;
 	Pixel* m_pixel;
 	Vector3f* m_sample;
-	
+
 
 };
-
 
 //****************************************************
 // shape 
@@ -776,16 +900,16 @@ public:
 // Global Variables
 //****************************************************
 
-CColor g_Ka, g_Kd, g_Ks;  // parameters 
-vector<CLight> g_lights;
+//CColor g_Ka, g_Kd, g_Ks;  // parameters 
+//vector<CLight> g_lights;
 //vector<C3DModel*> g_models; 
-float g_v; 
-bool g_isMultiple = false; 
-bool g_isToon = false;  
-bool g_isSave = true; 
-
-Vector3f d; //anisotropic fibrics direction vector
-bool g_isAniso = false;
+//float g_v; 
+//bool g_isMultiple = false; 
+//bool g_isToon = false;  
+//bool g_isSave = true; 
+//
+//Vector3f d; //anisotropic fibrics direction vector
+//bool g_isAniso = false;
 
 
 //USING_PART_OF_NAMESPACE_EIGEN
@@ -823,18 +947,19 @@ int main(int argc, char *argv[]){
 
 
 	// CImg<unsigned char> image("lena.pgm"), visu(500,400,1,3,0);
- //  const unsigned char red[] = { 255,0,0 }, green[] = { 0,255,0 }, blue[] = { 0,0,255 };
- //  image.blur(2.5);
- //  CImgDisplay main_disp(image,"Click a point"), draw_disp(visu,"Intensity profile");
- //  while (!main_disp.is_closed() && !draw_disp.is_closed()) {
- //    main_disp.wait();
- //    if (main_disp.button() && main_disp.mouse_y()>=0) {
- //      const int y = main_disp.mouse_y();
- //      visu.fill(0).draw_graph(image.get_crop(0,y,0,0,image.width()-1,y,0,0),red,1,1,0,255,0);
- //      visu.draw_graph(image.get_crop(0,y,0,1,image.width()-1,y,0,1),green,1,1,0,255,0);
- //      visu.draw_graph(image.get_crop(0,y,0,2,image.width()-1,y,0,2),blue,1,1,0,255,0).display(draw_disp);
- //      }
- //    }
-  return 0;
+	//  const unsigned char red[] = { 255,0,0 }, green[] = { 0,255,0 }, blue[] = { 0,0,255 };
+	//  image.blur(2.5);
+	//  CImgDisplay main_disp(image,"Click a point"), draw_disp(visu,"Intensity profile");
+	//  while (!main_disp.is_closed() && !draw_disp.is_closed()) {
+	//    main_disp.wait();
+	//    if (main_disp.button() && main_disp.mouse_y()>=0) {
+	//      const int y = main_disp.mouse_y();
+	//      visu.fill(0).draw_graph(image.get_crop(0,y,0,0,image.width()-1,y,0,0),red,1,1,0,255,0);
+	//      visu.draw_graph(image.get_crop(0,y,0,1,image.width()-1,y,0,1),green,1,1,0,255,0);
+	//      visu.draw_graph(image.get_crop(0,y,0,2,image.width()-1,y,0,2),blue,1,1,0,255,0).display(draw_disp);
+	//      }
+	//    }
+	return 0;
 
 }
+
