@@ -43,6 +43,8 @@
 #define FOR(i,n) for( int i=0; i<n; i++ )                           // for loop 
 #define FOR_u(i, n) for (size_t i = 0; i < n; i++)                  // for loop 
 #define SQUARE(x) ((x)*(x))
+#define INF (float)1e30
+
 inline float sqr(float x) { return x*x; }
 typedef unsigned char uchar; 
 using namespace std;
@@ -241,31 +243,59 @@ public:
 	// : m_w(768), m_h(512), m_width(30.0), m_height(20.0),
 	// 	m_center(0,0,0), m_normal(0,0,1){}
 
-	CCamera(Vector3f _eye, int _w, int _h, Vector3f LL, Vector3f UL, Vector3f LR, Vector3f UR)
+	CCamera(Vector3f _eye, int _w, int _h, Vector3f LL, Vector3f UL, Vector3f LR, Vector3f UR, int _over_sample_ratio)
 		:m_eye(_eye.x(), _eye.y(), _eye.z()),
 		m_w(_w), m_h(_h), 
-		m_width((LL-LR).norm()), m_height((UL-LL).norm()){
-			m_center=((LL+LR)/2.0+(UL+UR)/2.0)/2.0;
+		m_width((LL-LR).norm()), m_height((UL-LL).norm()),
+		m_over_sample_ratio(_over_sample_ratio){
+			m_center=((LL+LR)/2.0f+(UL+UR)/2.0f)/2.0f;
 
 			//make sure direction is right
 			//normal pointing toward eye
 			m_normal=(LL-LR).cross(LL-UL);
 			m_normal=m_normal/m_normal.norm();
 			
+			m_sample=new Vector3f[m_w*m_h*m_over_sample_ratio*m_over_sample_ratio];
 			m_pixel=new Pixel[m_w*m_h];
 
-			float u_step=1.0/_w, v_step=1.0/_h;
-			float u=u_step/2.0, v=v_step/2.0;
+
+			m_u_step=1.0f/_w/m_over_sample_ratio;
+			m_v_step=1.0f/_h/m_over_sample_ratio;
+
+			m_u=m_u_step/2.0f;
+			m_v=m_v_step/2.0f;
+
+			float u=m_u_step/2.0f, v=m_v_step/2.0f;
+
+			for (int i=0; i<m_h*m_over_sample_ratio; i++){
+				for(int j=0; j< m_w*m_over_sample_ratio; j++){
+					m_sample[i*m_w*m_over_sample_ratio+j]=u*(v*LL+(1-v)*UL)+(1-u)*(v*LR+(1-v)*UR);
+					// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
+					// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
+					// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
+					u+=m_u_step;
+				}
+				v+=m_v_step;
+			}
+
+			m_u_step=1.0f/_w;
+			m_v_step=1.0f/_h;
+
+			m_u=m_u_step/2.0f;
+			m_v=m_v_step/2.0f;
+
+			u=m_u_step/2.0f;
+			v=m_v_step/2.0f;
 
 			for (int i=0; i<m_h; i++){
 				for(int j=0; j< m_w; j++){
-					m_pixel[i*m_w+j].m_coord=u*(v*LL+(1-v)*UL)+(1-u)*(v*LR+(1-v)*UR);
-					m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
-					m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
-					m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
-					u+=u_step;
+					m_sample[i*m_w+j]=u*(v*LL+(1-v)*UL)+(1-u)*(v*LR+(1-v)*UR);
+					// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
+					// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
+					// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
+					u+=m_u_step;
 				}
-				v+=v_step;
+				v+=m_v_step;
 			}
 		}
 
@@ -275,22 +305,48 @@ public:
 		m_pixel[i*m_w+j].m_color.m_rgb[2]=color.m_rgb[2];
 	}
 
-	virtual void shoot(){}
+	bool Sample(int depth){
+		Vector3f pos, dir;
+		float t_min, t_max;
+
+		for(int i=0; i< m_h; i++)
+			for(int j=0; j<m_w; j++){
+				CColor temp;
+
+				for(int k=i; k<i+m_over_sample_ratio;k++)
+					for(int g=j;g<j+m_over_sample_ratio;g++){
+						pos=m_sample[k*m_h*m_over_sample_ratio+g];
+						dir=pos-m_eye;
+
+						CRay ray(pos, dir, dir.norm(), INF);
+
+						// temp.add(RayTracer.trace(ray, depth));
+					}
+				m_pixel[i*m_w+j].m_color.Add(temp);
+		}
+		return true;
+	}
+
+	// bool Film()
 
 
 
 	void DestroyCamera(){
 		delete[] m_pixel;
+		delete[] m_sample;
 	}
 
 public:
 	int m_w, m_h; // width and height  in pixels
 	float m_width, m_height; //width and height in world units (cm)
+	float m_u_step, m_v_step, m_u, m_v;  //parameters base one (0,1) for width (u), height (v)
 	Vector3f m_center;
 	Vector3f m_normal;
 	Vector3f LL, UL, LR, UR;
 	Vector3f m_eye;
-	Pixel *m_pixel;
+	int m_over_sample_ratio;
+	Pixel* m_pixel;
+	Vector3f* m_sample;
 
 };
 
@@ -379,6 +435,14 @@ int main(int argc, char *argv[]){
 	cout<< ray.m_ray_start<< "\n\n" << ray.m_ray_end
 		<<"\n\n"<<p_point<<"\n\n"
 		<<ray.hasPoint(p_point, .1)<<endl;
+
+
+	Vector3f eye(0,0,5);
+	int w=256, h=256;
+	Vector3f LL(-10, -10, 0), UL(-10,10, 0),
+		LR(10, -10, 0), UR(10, 10, 0);
+	int over_sample_ratio=10;
+	CCamera camera(eye, w, h, LL, UL, LR, UR, over_sample_ratio);
 	// cout<<"m3\n" << m3 << "\nm4:\n"
 	// 	<<m4 << "\nv4:\n" <<N.m_coord<<endl;
 
