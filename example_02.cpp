@@ -128,6 +128,11 @@ public:
 		return (dir_p-(dir_p).dot(m_dir)*m_dir).norm()<=threshold;
 	}
 
+	void Print(){
+		cout<<"Ray: pos: "<<m_pos<<"dir: "<<m_dir
+			<<"Start: "<<m_ray_start<<"End: "<< m_ray_start<<endl;
+	}
+
 public:
 	Vector3f m_pos, m_dir;
 	Vector3f m_ray_start, m_ray_end;
@@ -238,16 +243,18 @@ struct Pixel{
 
 class CCamera {
 public:
+	enum SamplerType { OverS, JitterS};
 	CCamera(){}
 
 	// : m_w(768), m_h(512), m_width(30.0), m_height(20.0),
 	// 	m_center(0,0,0), m_normal(0,0,1){}
 
-	CCamera(Vector3f _eye, int _w, int _h, Vector3f LL, Vector3f UL, Vector3f LR, Vector3f UR, int _over_sample_ratio)
+	CCamera(Vector3f _eye, int _w, int _h, Vector3f _LL, Vector3f _UL, Vector3f _LR, Vector3f _UR)
 		:m_eye(_eye.x(), _eye.y(), _eye.z()),
 		m_w(_w), m_h(_h), 
 		m_width((LL-LR).norm()), m_height((UL-LL).norm()),
-		m_over_sample_ratio(_over_sample_ratio){
+		LL(_LL.x(), _LL.y(), _LL.z()), UL(_UL.x(), _UL.y(), _UL.z()),
+		LR(_LR.x(), _LR.y(), _LR.z()), UR(_UR.x(), _UR.y(), _UR.z()){
 			m_center=((LL+LR)/2.0f+(UL+UR)/2.0f)/2.0f;
 
 			//make sure direction is right
@@ -255,47 +262,32 @@ public:
 			m_normal=(LL-LR).cross(LL-UL);
 			m_normal=m_normal/m_normal.norm();
 			
-			m_sample=new Vector3f[m_w*m_h*m_over_sample_ratio*m_over_sample_ratio];
+			// m_sample=new Vector3f[m_w*m_h*m_over_sample_ratio*m_over_sample_ratio];
 			m_pixel=new Pixel[m_w*m_h];
 
+//////////////////////////////////////////
+			//pixel coordinates and color initialization
+//////////////////////////////////////////
 
-			m_u_step=1.0f/_w/m_over_sample_ratio;
-			m_v_step=1.0f/_h/m_over_sample_ratio;
 
-			m_u=m_u_step/2.0f;
-			m_v=m_v_step/2.0f;
+			float u_step=1.0f/m_w;
+			float v_step=1.0f/m_h;
 
-			float u=m_u_step/2.0f, v=m_v_step/2.0f;
-
-			for (int i=0; i<m_h*m_over_sample_ratio; i++){
-				for(int j=0; j< m_w*m_over_sample_ratio; j++){
-					m_sample[i*m_w*m_over_sample_ratio+j]=u*(v*LL+(1-v)*UL)+(1-u)*(v*LR+(1-v)*UR);
-					// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
-					// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
-					// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
-					u+=m_u_step;
-				}
-				v+=m_v_step;
-			}
-
-			m_u_step=1.0f/_w;
-			m_v_step=1.0f/_h;
-
-			m_u=m_u_step/2.0f;
-			m_v=m_v_step/2.0f;
-
-			u=m_u_step/2.0f;
-			v=m_v_step/2.0f;
+			float u=u_step/2.0f;
+			float v=v_step/2.0f;
 
 			for (int i=0; i<m_h; i++){
 				for(int j=0; j< m_w; j++){
-					m_sample[i*m_w+j]=u*(v*LL+(1-v)*UL)+(1-u)*(v*LR+(1-v)*UR);
+					m_pixel[i*m_w+j].m_coord=u*(v*UR+(1-v)*LR)+(1-u)*(v*UL+(1-v)*LL);
 					// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
 					// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
 					// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
-					u+=m_u_step;
+
+					// cout<<m_pixel[i*m_w+j].m_coord<<endl;
+					u+=u_step;
 				}
-				v+=m_v_step;
+				u=u_step/2.0f;
+				v+=v_step;
 			}
 		}
 
@@ -305,7 +297,77 @@ public:
 		m_pixel[i*m_w+j].m_color.m_rgb[2]=color.m_rgb[2];
 	}
 
-	bool Sample(int depth){
+private:
+
+
+//////////////////////////////////////////////
+			// over_sample
+/////////////////////////////////////////////
+	bool OverSampler(Vector3f* m_sample, int over_sample_ratio){
+			float u_step=1.0f/m_w/over_sample_ratio;
+			float v_step=1.0f/m_h/over_sample_ratio;
+
+			float u=u_step/2.0f, v=v_step/2.0f;
+// cout<<LL<<UL<<LR<<UR<<endl;
+			for (int i=0; i<m_h*over_sample_ratio; i++){
+				for(int j=0; j< m_w*over_sample_ratio; j++){
+					m_sample[i*m_w*over_sample_ratio+j]=u*(v*UR+(1-v)*LR)+(1-u)*(v*UL+(1-v)*LL);
+					// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
+					// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
+					// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
+					cout<<m_sample[i*m_w*over_sample_ratio+j]<<endl;
+					u+=u_step;
+					
+				}
+				// cout<<"u: "<<u << ", "<<v<<endl;
+				u=u_step/2.0f;
+				v+=v_step;
+			}
+			return true;
+	}
+
+
+	//////////////////////////////////////////////
+			// jitter_over_sample
+/////////////////////////////////////////////
+	bool JitterSampler(Vector3f* m_sample, int over_sample_ratio){
+
+			float u_step=1.0f/m_w/over_sample_ratio;
+			float v_step=1.0f/m_h/over_sample_ratio;
+
+			float u=u_step/2.0f, v=v_step/2.0f;
+// cout<<LL<<UL<<LR<<UR<<endl;
+			for (int i=0; i<m_h*over_sample_ratio; i++){
+				for(int j=0; j< m_w*over_sample_ratio; j++){
+					m_sample[i*m_w*over_sample_ratio+j]=u*(v*UR+(1-v)*LR)+(1-u)*(v*UL+(1-v)*LL);
+					// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
+					// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
+					// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
+					// cout<<m_sample[i*m_w*m_over_sample_ratio+j]<<endl;
+					u+=u_step;
+					
+				}
+				// cout<<"u: "<<u << ", "<<v<<endl;
+				u=u_step/2.0f;
+				v+=v_step;
+			}
+			return true;
+	}
+
+public:
+
+	bool Sample(int depth, int over_sample_ratio ,SamplerType s){
+		m_sample=new Vector3f[m_w*m_h*over_sample_ratio*over_sample_ratio];
+		if (s==OverS){
+			OverSampler(m_sample, over_sample_ratio);
+		}
+		else if (s==JitterS){
+			JitterSampler(m_sample, over_sample_ratio);
+		}
+		else
+			cerr<<"wrong sampler type, either: OverS or JitterS"<<endl;
+			return false;
+
 		Vector3f pos, dir;
 		float t_min, t_max;
 
@@ -313,9 +375,9 @@ public:
 			for(int j=0; j<m_w; j++){
 				CColor temp;
 
-				for(int k=i; k<i+m_over_sample_ratio;k++)
-					for(int g=j;g<j+m_over_sample_ratio;g++){
-						pos=m_sample[k*m_h*m_over_sample_ratio+g];
+				for(int k=i; k<i+over_sample_ratio;k++)
+					for(int g=j;g<j+over_sample_ratio;g++){
+						pos=m_sample[k*m_h*over_sample_ratio+g];
 						dir=pos-m_eye;
 
 						CRay ray(pos, dir, dir.norm(), INF);
@@ -323,6 +385,7 @@ public:
 						// temp.add(RayTracer.trace(ray, depth));
 					}
 				m_pixel[i*m_w+j].m_color.Add(temp);
+				// m_pixel[i*m_w+j].m_color.Print();
 		}
 		return true;
 	}
@@ -336,17 +399,19 @@ public:
 		delete[] m_sample;
 	}
 
+
 public:
 	int m_w, m_h; // width and height  in pixels
 	float m_width, m_height; //width and height in world units (cm)
-	float m_u_step, m_v_step, m_u, m_v;  //parameters base one (0,1) for width (u), height (v)
+	// float m_u_step, m_v_step, m_u, m_v;  //parameters base one (0,1) for width (u), height (v)
 	Vector3f m_center;
 	Vector3f m_normal;
 	Vector3f LL, UL, LR, UR;
 	Vector3f m_eye;
-	int m_over_sample_ratio;
+	// int m_over_sample_ratio;
 	Pixel* m_pixel;
 	Vector3f* m_sample;
+	
 
 };
 
@@ -389,22 +454,6 @@ public:
 	float m_radius; 
 };
 
-// class Screen {
-// public:
-// 	Screen(){ screen.resize(256, 256); m_center[0]=128; m_center[1]=128;}
-// 	Screen(int _w, int _h){
-// 		m_w
-// 	}
-	
-// public:
-// 	int m_center[2];
-// 	int m_w, m_h;
-
-// 	pngwriter screen(1,1,0,);
-
-// }
-
-
 
 //****************************************************
 // Global Variables
@@ -429,8 +478,10 @@ int main(int argc, char *argv[]){
 	m3 << 1, 2, 3, 4, 5, 6, 7, 8, 9;
 	Matrix4f m4=Matrix4f::Identity();
 
-	Vector3f p_ray(0,0,0), d_ray(1,1,0), p_point(1.9, 1.9, 0);
+	Vector3f p_ray(0,0,0), d_ray(0,0,0), p_point(1.9, 1.9, 0);
 	CRay ray(p_ray, d_ray, 1, 10);
+
+
 
 	cout<< ray.m_ray_start<< "\n\n" << ray.m_ray_end
 		<<"\n\n"<<p_point<<"\n\n"
@@ -438,11 +489,13 @@ int main(int argc, char *argv[]){
 
 
 	Vector3f eye(0,0,5);
-	int w=256, h=256;
+	int w=25, h=25;
 	Vector3f LL(-10, -10, 0), UL(-10,10, 0),
 		LR(10, -10, 0), UR(10, 10, 0);
-	int over_sample_ratio=10;
-	CCamera camera(eye, w, h, LL, UL, LR, UR, over_sample_ratio);
+	int over_sample_ratio=2;
+	CCamera camera(eye, w, h, LL, UL, LR, UR);
+	camera.Sample(1, over_sample_ratio, CCamera::OverS);
+
 	// cout<<"m3\n" << m3 << "\nm4:\n"
 	// 	<<m4 << "\nv4:\n" <<N.m_coord<<endl;
 
