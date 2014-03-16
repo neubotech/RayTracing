@@ -51,6 +51,7 @@ using namespace cimg_library;
 #define FOR(i,n) for( int i=0; i<n; i++ )                           // for loop 
 #define FOR_u(i, n) for (size_t i = 0; i < n; i++)                  // for loop 
 #define SQUARE(x) ((x)*(x))
+#define INF (float) 1e50
 inline float sqr(float x) { return x*x; }
 typedef unsigned char uchar; 
 typedef Vector3f V3f; 
@@ -530,15 +531,36 @@ public:
 			m_dir.x(), m_dir.y(), m_dir.z(), m_color.m_rgb[0], m_color.m_rgb[1], m_color.m_rgb[2]);
 	}
 
-	// normalize light dir vector
+	// normalize light dir vector chech if direction is right????
 	void generateLightRay(CLocalGeo& local, CRay* lray, CColor* lcolor) {
 		*lcolor = m_color;
 		if (m_type == Point) {
+			lray->m_pos=local.m_pos;
+
 			
+			lray->m_dir=(local.m_pos-m_dir);
+			lray->m_t_max=(lray->m_dir).norm();
+			lray->m_t_min=0;
+			lray->m_dir=lray->m_dir/lray->m_dir.norm();
+
+			lray->m_ray_start=m_dir;
+			lray->m_ray_end=local.m_pos;
 		} 
 
 		if (m_type == Directional) {
+			lray->m_pos=local.m_pos;
+			lray->m_dir=m_dir/m_dir.norm();
 
+			lray->m_t_min=-INF;
+			lray->m_t_max=0;
+			lray->m_ray_start=-INF*lray->m_dir;
+			lray->m_ray_end=local.m_pos;
+
+			// lray->m_t_min=0;
+			// lray->m_t_max=INF;
+
+			// lray->m_ray_start=local.m_pos;
+			// lray->m_ray_end=INF;
 		}
 	}
 
@@ -803,6 +825,7 @@ public:
 
 		Vector3f pos, dir;
 		float t_min, t_max;
+		CRayTracer ray_tracer;
 
 		for(int i=0; i< m_h; i++)
 			for(int j=0; j<m_w; j++){
@@ -812,10 +835,12 @@ public:
 					for(int g=j;g<j+over_sample_ratio;g++){
 						pos=m_sample[k*m_h*over_sample_ratio+g];
 						dir=pos-m_eye;
-
+						
 						CRay ray(pos, dir, dir.norm(), INF);
+						CColor ray_color;
 
-						// temp.add(RayTracer.trace(ray, depth));
+						ray_tracer.trace(ray, depth, &ray_color);  //check ???? if ray_tracer behave right???
+						temp.Add(ray_color);		///completed cumulated oversampling
 					}
 					m_pixel[i*m_w+j].m_color.Add(temp);
 					// m_pixel[i*m_w+j].m_color.Print();
