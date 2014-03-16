@@ -49,6 +49,7 @@ using namespace cimg_library;
 #define FOR(i,n) for( int i=0; i<n; i++ )                           // for loop 
 #define FOR_u(i, n) for (size_t i = 0; i < n; i++)                  // for loop 
 #define SQUARE(x) ((x)*(x))
+#define INF (float)1e50
 inline float sqr(float x) { return x*x; }
 typedef unsigned char uchar; 
 typedef Vector3f V3f; 
@@ -697,7 +698,16 @@ public:
 		return true;
 	}
 
-	// bool Film()
+	bool Film(){
+		CImg<unsigned char> img(m_w, m_h, 1, 3);
+		img.fill(0);
+		cimg_forXYC(img, x, y, c) {img(x,y,c)=(unsigned char) m_pixel[x*m_w+y].m_color.m_rgb[c];}
+		img.normalize(0,255);
+		img.save("Scene.bmp");
+		img.display("RayTracer");
+		return true;
+
+	}
 
 
 
@@ -800,9 +810,13 @@ int main(int argc, char *argv[]){
 	Vector3f LL(-10, -10, 0), UL(-10,10, 0),
 		LR(10, -10, 0), UR(10, 10, 0);
 	int over_sample_ratio=2;
+	CColor pixel(1,0,0);
+
 	CCamera camera(eye, w, h, LL, UL, LR, UR);
 	// camera.Sample(1, over_sample_ratio, CCamera::OverS);
 	camera.Sample(1, over_sample_ratio, CCamera::JitterS);
+	// camera.ColorPixel(10, 10, pixel);
+	camera.Film();
 
 	// cout<<"m3\n" << m3 << "\nm4:\n"
 	// 	<<m4 << "\nv4:\n" <<N.m_coord<<endl;
