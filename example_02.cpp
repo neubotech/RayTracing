@@ -39,23 +39,23 @@ using namespace cimg_library;
 //****************************************************
 // macros and inline functions
 //****************************************************
-#define EPS 1e-10
+#define EPS 1e-15f
 #define NUM_DEPTH 3
-#define NUM_LIGHTS 4
-#ifdef _WIN32
-#define INF std::numeric_limits<float>::infinity()
-#endif // _WIN32
+//#define NUM_LIGHTS 4
+//#ifdef _WIN32
+//#define INF 1e10f
+//#endif // _WIN32
 
 #define DELETE_OBJECT(x)	if ((x)) { delete (x); (x) = NULL; }   // delete a class object
 #define DELETE_ARRAY(x)		if ((x)) { delete [] (x); (x) = NULL; } // delete an array
 #define FOR(i,n) for( int i=0; i<n; i++ )                           // for loop 
 #define FOR_u(i, n) for (size_t i = 0; i < n; i++)                  // for loop 
 #define SQUARE(x) ((x)*(x))
-#define INF (float) 1e50
+#define INF (float) 1e10
 inline float sqr(float x) { return x*x; }
 typedef unsigned char uchar; 
 typedef Vector3f V3f; 
-
+#define PRINT
 //****************************************************
 // Basic Classes
 //****************************************************
@@ -110,13 +110,18 @@ public:
 	}	
 
 	Vector3f Ray_t(float t){
-		if(t<m_t_min || t>m_t_max)
+		if(t >= m_t_min && t <= m_t_max)
 			return m_pos+t*m_dir;
-		else
+		else {
 			cerr<<"t outside of range"<< m_t_min
 				<<", "<< m_t_max <<endl;
 			exit(-1);
+		}
 	}
+
+	/*void Print() {
+		cout << m_dir;
+	}*/
 
 	bool hasPoint(Vector3f point){
 		Vector3f dir_p=point-m_pos;
@@ -134,8 +139,13 @@ public:
 	}
 
 	void Print(){
-		cout<<"Ray: pos: "<<m_pos<<"dir: "<<m_dir
-			<<"Start: "<<m_ray_start<<"End: "<< m_ray_start<<endl;
+		#ifdef PRINT
+		cout<<"[Ray] pos:\n"<<m_pos<<"\ndir:\n"<<m_dir
+			<< "\ntmin: " << m_t_min << " tmax: " << m_t_max << endl; 
+		#endif // PRINT
+
+	
+			//<<" start: "<<m_ray_start<<" end: "<< m_ray_start<<endl;
 	}
 
 public:
@@ -362,6 +372,9 @@ public:
 //	texture mapping, this need to be modified.
 class CMaterial {
 public: 
+	CMaterial(CBRDF& _brdf) {
+		m_constantBRDF = _brdf; 
+	}
 	CMaterial() {
 		// set constant BRDF 
 	}
@@ -426,7 +439,7 @@ public:
 		m_mat->getBRDF(local, brdf);
 	}
 
-private: 
+public: 
 	CTransformation m_objToWorld; 
 	CTransformation m_worldToObj; 
 	CShape* m_shape; 
@@ -536,15 +549,14 @@ public:
 		*lcolor = m_color;
 		if (m_type == Point) {
 			lray->m_pos=local.m_pos;
-
 			
-			lray->m_dir=(local.m_pos-m_dir);
-			lray->m_t_max=(lray->m_dir).norm();
-			lray->m_t_min=0;
-			lray->m_dir=lray->m_dir/lray->m_dir.norm();
+			lray->m_dir = m_dir - local.m_pos;
+			lray->m_t_min = (float) 1e-3;
+			lray->m_t_max = INF; //(lray->m_dir).norm();
+			lray->m_dir = lray->m_dir/lray->m_dir.norm();
 
-			lray->m_ray_start=m_dir;
-			lray->m_ray_end=local.m_pos;
+			lray->m_ray_start = local.m_pos;
+			lray->m_ray_end = m_dir;
 		} 
 
 		if (m_type == Directional) {
@@ -573,9 +585,9 @@ public:
 
 class CRayTracer {
 
-private: 
-	CPrimitive* m_prim;
-	vector<CLight> m_lights; 
+private:  
+	CPrimitive* m_scene;     // primitives
+	vector<CLight*> m_lights;   // lights
 
 private: 
 	CColor renderAmbientTerm(CRay& _ray, CColor& _rayColor, CColor& _Ka) {
@@ -602,17 +614,19 @@ private:
 
 	CColor renderSpecularTerm(CRay& _ray, CColor& _rayColor, CColor& _Ks, V3f& _n, V3f& _v, float _p) {
 		CColor c;
-		_ray.m_dir = _ray.m_dir;
-		V3f r = (_n * 2 *_ray.m_dir.dot(_n))- _ray.m_dir;
-		float dot = pow(max(r.dot(_v),0.0f), _p);
+		//_ray.m_dir = _ray.m_dir;
+		V3f dir = _ray.m_dir; 
+		V3f r = (_n * 2 *dir.dot(_n))- dir;
+		_v = -_v / _v.norm();
 
+		float dot = pow(max(r.dot(_v),0.0f), _p);
 		FOR (k, 3) 
 			c.m_rgb[k] = _Ks.m_rgb[k] * dot * _rayColor.m_rgb[k];
 
 		return c; 
 	}
 
-	CColor shading(CLocalGeo& _local, CBRDF& _brdf, CRay& _ray, CColor& _rayColor) {
+	CColor shading(CLocalGeo& _local, CBRDF& _brdf, CRay& _ray, V3f& _v, CColor& _rayColor) {
 		CColor c_all(0.0f, 0.0f, 0.0f);
 
 		CColor c_ambient = renderAmbientTerm(_ray, _rayColor, _brdf.ka); 
@@ -621,8 +635,9 @@ private:
 		CColor c_diffuse = renderDiffuseTerm(_ray, _rayColor, _brdf.kd, _local.m_n);
 		c_all = c_all.Add(c_diffuse);
 
-		CColor c_specular = renderSpecularTerm(_ray, _rayColor, _brdf.ks, _local.m_n, _local.m_pos, _brdf.p);
+		CColor c_specular = renderSpecularTerm(_ray, _rayColor, _brdf.ks, _local.m_n, _v, _brdf.p);
 		c_all = c_all.Add(c_specular);
+		//c_all.Print(); 
 		return c_all; 
 	}
 
@@ -633,6 +648,13 @@ private:
 	}
 
 public: 
+	CRayTracer() {}
+
+	void Setup(CPrimitive* _scene, vector<CLight*> _lights) { // set up scene and lights
+		m_scene = _scene; 
+		m_lights = _lights;
+	}
+
 	void trace(CRay& ray, int depth, CColor* color) {
 		if (depth > NUM_DEPTH) {
 			// Make the color black and return
@@ -644,7 +666,7 @@ public:
 
 		float thit; 
 		CIntersection in;
-		if (!m_prim->intersect(ray, &thit, &in)) {
+		if (!m_scene->intersect(ray, &thit, &in)) {
 			color->m_rgb[0] = 0.0; 
 			color->m_rgb[1] = 0.0; 
 			color->m_rgb[2] = 0.0; 
@@ -653,28 +675,34 @@ public:
 
 		CBRDF brdf; 
 		in.m_prim->getBRDF(in.m_localGeo, &brdf);
-		FOR (i, NUM_LIGHTS) {
+
+		FOR_u (i, m_lights.size()) {
 			CRay lray; 
-			CColor lcolor; 
-			m_lights[i].generateLightRay(in.m_localGeo, &lray, &lcolor);
-			if (!m_prim->intersectP(lray)) { //If not, do shading calculation for this light source
-				CColor c = shading(in.m_localGeo, brdf, lray, lcolor);
+			CColor lcolor;
+			//cout << in.m_localGeo.m_pos << endl; 
+			//cout << in.m_localGeo.m_n << endl; 
+			m_lights[i]->generateLightRay(in.m_localGeo, &lray, &lcolor);
+			//lray.Print();
+			if (!m_scene->intersectP(lray)) { //If not, do shading calculation for this light source
+				// bug
+				//shading(CLocalGeo& _local, CBRDF& _brdf, CRay& _ray, V3f& _v, CColor& _rayColor) {
+				CColor c = shading(in.m_localGeo, brdf, lray, ray.m_dir, lcolor);
 				*color = color->Add(c);
 			}
 		}
 
 		// Handle mirror reflection
-		if (brdf.kr.m_rgb[0] > 0 
-			|| brdf.kr.m_rgb[1] > 0 
-			|| brdf.kr.m_rgb[2] > 0) {
-			CRay reflectRay = createReflectRay(in.m_localGeo, ray);
-			//Make a recursive call to trace the reflected ray
-			CColor tempColor; 
-			trace(reflectRay, depth+1, &tempColor);
-			color->m_rgb[0] += tempColor.m_rgb[0] * brdf.kr.m_rgb[0];
-			color->m_rgb[1] += tempColor.m_rgb[1] * brdf.kr.m_rgb[1];
-			color->m_rgb[2] += tempColor.m_rgb[2] * brdf.kr.m_rgb[2];
-		}
+		//if (brdf.kr.m_rgb[0] > 0 
+		//	|| brdf.kr.m_rgb[1] > 0 
+		//	|| brdf.kr.m_rgb[2] > 0) {
+		//	CRay reflectRay = createReflectRay(in.m_localGeo, ray);
+		//	//Make a recursive call to trace the reflected ray
+		//	CColor tempColor; 
+		//	trace(reflectRay, depth+1, &tempColor);
+		//	color->m_rgb[0] += tempColor.m_rgb[0] * brdf.kr.m_rgb[0];
+		//	color->m_rgb[1] += tempColor.m_rgb[1] * brdf.kr.m_rgb[1];
+		//	color->m_rgb[2] += tempColor.m_rgb[2] * brdf.kr.m_rgb[2];
+		//}
 
 	}
 };
@@ -694,7 +722,7 @@ public:
 
 	// : m_w(768), m_h(512), m_width(30.0), m_height(20.0),
 	// 	m_center(0,0,0), m_normal(0,0,1){}
-
+	void SetupRayTracer(CRayTracer* _tracer ) { m_rayTracer = _tracer; }
 	CCamera(Vector3f _eye, int _w, int _h, Vector3f _LL, Vector3f _UL, Vector3f _LR, Vector3f _UR)
 		:m_eye(_eye.x(), _eye.y(), _eye.z()),
 		m_w(_w), m_h(_h), 
@@ -738,9 +766,15 @@ public:
 	}
 
 	void ColorPixel(int i, int j, CColor color){
-		m_pixel[i*m_w+j].m_color.m_rgb[0]=color.m_rgb[0];
-		m_pixel[i*m_w+j].m_color.m_rgb[1]=color.m_rgb[1];
-		m_pixel[i*m_w+j].m_color.m_rgb[2]=color.m_rgb[2];
+		float mag = 255.0f; 
+		m_pixel[i*m_w+j].m_color.m_rgb[0]=color.m_rgb[0]*mag;
+		m_pixel[i*m_w+j].m_color.m_rgb[1]=color.m_rgb[1]*mag;
+		m_pixel[i*m_w+j].m_color.m_rgb[2]=color.m_rgb[2]*mag;
+	/*	if (m_pixel[i*m_w+j].m_color.m_rgb[0] > 0 ||
+			m_pixel[i*m_w+j].m_color.m_rgb[1] > 0|| 
+			m_pixel[i*m_w+j].m_color.m_rgb[2] > 0) {
+			printf("non-zero");
+		}*/
 	}
 
 private:
@@ -750,8 +784,8 @@ private:
 	// over_sample
 	/////////////////////////////////////////////
 	bool OverSampler(Vector3f* m_sample, int over_sample_ratio){
-		float u_step=1.0f/m_w/over_sample_ratio;
-		float v_step=1.0f/m_h/over_sample_ratio;
+		float u_step=1.0f/(m_w*over_sample_ratio);
+		float v_step=1.0f/(m_h*over_sample_ratio);
 
 		float u=u_step/2.0f, v=v_step/2.0f;
 		// cout<<LL<<UL<<LR<<UR<<endl;
@@ -777,7 +811,7 @@ private:
 	// jitter_over_sample
 	/////////////////////////////////////////////
 	float Rand(float step){
-		return ((((float) rand() / RAND_MAX)-.5)*step); //bound
+		return ((((float) rand() / RAND_MAX)-.5f)*step); //bound
 	}
 	bool JitterSampler(Vector3f* m_sample, int over_sample_ratio){
 
@@ -811,7 +845,7 @@ private:
 
 public:
 
-	bool Sample(int depth, int over_sample_ratio ,SamplerType s){
+	bool Sample(int depth, int over_sample_ratio, SamplerType s){
 		m_sample=new Vector3f[m_w*m_h*over_sample_ratio*over_sample_ratio];
 		if (s==OverS){
 			OverSampler(m_sample, over_sample_ratio);
@@ -819,44 +853,69 @@ public:
 		else if (s==JitterS){
 			JitterSampler(m_sample, over_sample_ratio);
 		}
-		else
+		else {
 			cerr<<"wrong sampler type, either: OverS or JitterS"<<endl;
-		return false;
-
+			return false;
+		}
 		Vector3f pos, dir;
-		float t_min, t_max;
-		CRayTracer ray_tracer;
+		//float t_min, t_max;
+		//CRayTracer ray_tracer;
+		float num_samples = (float) over_sample_ratio * over_sample_ratio; 
 
-		for(int i=0; i< m_h; i++)
+		for(int i=0; i< m_h; i++) {
 			for(int j=0; j<m_w; j++){
+			/*	if (i != 150 || j != 101)
+					continue; */
 				CColor temp;
 
-				for(int k=i; k<i+over_sample_ratio;k++)
+				for(int k=i; k<i+over_sample_ratio;k++) {
 					for(int g=j;g<j+over_sample_ratio;g++){
 						pos=m_sample[k*m_h*over_sample_ratio+g];
 						dir=pos-m_eye;
 						
-						CRay ray(pos, dir, dir.norm(), INF);
+						//CRay ray(pos, dir, dir.norm(), INF);
+						CRay ray(pos, dir, EPS, INF);
 						CColor ray_color;
 
-						ray_tracer.trace(ray, depth, &ray_color);  //check ???? if ray_tracer behave right???
-						temp.Add(ray_color);		///completed cumulated oversampling
+						m_rayTracer->trace(ray, depth, &ray_color);  //check ???? if ray_tracer behave right???
+						temp = temp.Add(ray_color);		///completed cumulated oversampling
 					}
-					m_pixel[i*m_w+j].m_color.Add(temp);
+					
+					//temp.Print(); 
+					
+					
+				}
+
+				//temp.Print();
+				ColorPixel(i,j,temp);
+
+			/*	m_pixel[i*m_w+j].m_color =  m_pixel[i*m_w+j].m_color.Add(temp);
+				if (m_pixel[i*m_w+j].m_color.m_rgb[0] > 0.0 ||
+					m_pixel[i*m_w+j].m_color.m_rgb[1] > 0.0 ||
+					m_pixel[i*m_w+j].m_color.m_rgb[2] > 0.0) {
+					printf("non-zero\n");
+				}
+				m_pixel[i*m_w+j].m_color.m_rgb[0] /= num_samples;
+				m_pixel[i*m_w+j].m_color.m_rgb[1] /= num_samples;
+				m_pixel[i*m_w+j].m_color.m_rgb[2] /= num_samples;*/
 					// m_pixel[i*m_w+j].m_color.Print();
 			}
-			return true;
+		}
+			
+		return true;
 	}
 
 	bool Film(){
 		CImg<unsigned char> img(m_w, m_h, 1, 3);
 		img.fill(0);
-		cimg_forXYC(img, x, y, c) {img(x,y,c)=(unsigned char) m_pixel[x*m_w+y].m_color.m_rgb[c];}
+	/*	m_pixel[200].m_color.m_rgb[0] = 1;
+		m_pixel[200].m_color.m_rgb[1] = 1;
+	    m_pixel[200].m_color.m_rgb[2] = 1;*/
+		cimg_forXYC(img, x, y, c) {img(x,m_h-y-1,c)=(unsigned char) m_pixel[x*m_w+y].m_color.m_rgb[c];}
 		img.normalize(0,255);
-		img.save("Scene.bmp");
+		//img.save("Scene.bmp");
 		img.display("RayTracer");
 		return true;
-
 	}
 
 
@@ -878,112 +937,72 @@ public:
 	// int m_over_sample_ratio;
 	Pixel* m_pixel;
 	Vector3f* m_sample;
-
-
+	CRayTracer* m_rayTracer; // = new CRayTracer(); 
 };
 
-//****************************************************
-// shape 
-//****************************************************
-//class C3DModel {
-//public: 
-//	//virtual CShape() = 0;
-//	virtual Vector3f Norm(Vector3f _pos) = 0;
-//	virtual bool IsVisible(float _x, float _y) = 0; 
-//	virtual float Z(float _x, float _y) = 0;
-//	virtual Vector3f Center() = 0;
-//	virtual float Radius() = 0;
-//public: 
-//
-//};
+CPrimitive* InitScene() { 
+	CGeometricPrimitive* scene = new CGeometricPrimitive();
+	scene->m_objToWorld = CTransformation();
+	scene->m_worldToObj = CTransformation();
+	CBRDF brdf; 
 
-//class CSphere : public C3DModel {
-//public: 
-//	CSphere() {}
-//	CSphere(Vector3f _center, float _radius) {
-//		m_center = _center; 
-//		m_radius = _radius;
-//	}
-//
-//	bool IsVisible(float _x, float _y) {
-//		return SQUARE(_x-m_center.x()) + SQUARE(_y-m_center.y()) < SQUARE(m_radius);
-//	}
-//
-//	float Z(float _x, float _y) {
-//		return sqrt(SQUARE(m_radius) - SQUARE(_x-m_center.x()) - SQUARE(_y-m_center.y()))+m_center.z(); 
-//	}
-//
-//	float Radius() { return m_radius;}
-//	Vector3f Center() { return m_center; }
-//public: 
-//	Vector3f m_center; 
-//	float m_radius; 
-//};
+	brdf.ka = CColor(0.5f, 0.0f, 0.0f);   // ambient 
+	brdf.kd = CColor(0.0f, 0.0f, 0.0f);   // diffuse
+	brdf.ks = CColor(0.0f, 0.0f, 0.0f);   // specular
+	//brdf.ks = CColor(0.2f, 0.2f, 0.2f);   // specular
+	brdf.kr = CColor(0.0f, 0.0f, 0.0f);   // reflection
+	brdf.p  = 6.0f;                       // specular 
+	scene->m_mat = new CMaterial(brdf);
+	//scene->m_shape = new CSphere(V3f(0.0f, 0.0f, -5.0f), 5.0f);
+	scene->m_shape = new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(15.0, 0.0, -5.0f), V3f(0.0, 15.0f, -5.0f));
+	return (CPrimitive*)scene; 	
+}
 
 
-//****************************************************
-// Global Variables
-//****************************************************
-
-//CColor g_Ka, g_Kd, g_Ks;  // parameters 
-//vector<CLight> g_lights;
-//vector<C3DModel*> g_models; 
-//float g_v; 
-//bool g_isMultiple = false; 
-//bool g_isToon = false;  
-//bool g_isSave = true; 
-//
-//Vector3f d; //anisotropic fibrics direction vector
-//bool g_isAniso = false;
-
-
-//USING_PART_OF_NAMESPACE_EIGEN
+vector<CLight*> InitLights() {
+	vector<CLight*> lights; 
+	CLight* light1 = new CLight(V3f(50.0f, 50.0f, 50.0f), CColor(1.0f, 1.0f, 1.0f), CLight::Directional);
+	lights.push_back(light1);
+	return lights; 
+}
 
 int main(int argc, char *argv[]){
-	Matrix3f m3;
-	m3 << 1, 2, 3, 4, 5, 6, 7, 8, 9;
-	Matrix4f m4=Matrix4f::Identity();
+	//Matrix3f m3;
+	//m3 << 1, 2, 3, 4, 5, 6, 7, 8, 9;
+	//Matrix4f m4=Matrix4f::Identity();
 
-	Vector3f p_ray(0,0,0), d_ray(0,0,0), p_point(1.9, 1.9, 0);
-	CRay ray(p_ray, d_ray, 1, 10);
+	//Vector3f p_ray(0.0f,0.0f,0.0f), d_ray(0.0f,0.0f,0.0f), p_point(1.9f, 1.9f, 0.0f);
+	//CRay ray(p_ray, d_ray, 1, 10);
 
 
 
-	cout<< ray.m_ray_start<< "\n\n" << ray.m_ray_end
-		<<"\n\n"<<p_point<<"\n\n"
-		<<ray.hasPoint(p_point, .1)<<endl;
+	//cout<< ray.m_ray_start<< "\n\n" << ray.m_ray_end
+	//	<<"\n\n"<<p_point<<"\n\n"
+	//	<<ray.hasPoint(p_point, .1f)<<endl;
 
 
 	Vector3f eye(0,0,5);
-	int w=25, h=25;
+	int w = 256; 
+	int h = w;
 	Vector3f LL(-10, -10, 0), UL(-10,10, 0),
 		LR(10, -10, 0), UR(10, 10, 0);
-	int over_sample_ratio=2;
+	int over_sample_ratio=1;
 	CColor pixel(1,0,0);
 
 	CCamera camera(eye, w, h, LL, UL, LR, UR);
-	// camera.Sample(1, over_sample_ratio, CCamera::OverS);
-	camera.Sample(1, over_sample_ratio, CCamera::JitterS);
-	// camera.ColorPixel(10, 10, pixel);
+	CRayTracer* rayTracer = new CRayTracer(); 
+	vector<CLight*> lights = InitLights(); 
+	CPrimitive* scene = InitScene(); 
+	rayTracer->Setup(scene, lights);
+	camera.SetupRayTracer(rayTracer);
+	camera.Sample(1, over_sample_ratio, CCamera::OverS);
 	camera.Film();
 
-	// cout<<"m3\n" << m3 << "\nm4:\n"
-	// 	<<m4 << "\nv4:\n" <<N.m_coord<<endl;
+	FOR (i, lights.size())
+		DELETE_OBJECT(lights[i]);
 
-
-	// CImg<unsigned char> image("lena.pgm"), visu(500,400,1,3,0);
-	//  const unsigned char red[] = { 255,0,0 }, green[] = { 0,255,0 }, blue[] = { 0,0,255 };
-	//  image.blur(2.5);
-	//  CImgDisplay main_disp(image,"Click a point"), draw_disp(visu,"Intensity profile");
-	//  while (!main_disp.is_closed() && !draw_disp.is_closed()) {
-	//    main_disp.wait();
-	//    if (main_disp.button() && main_disp.mouse_y()>=0) {
-	//      const int y = main_disp.mouse_y();
-	//      visu.fill(0).draw_graph(image.get_crop(0,y,0,0,image.width()-1,y,0,0),red,1,1,0,255,0);
-	//      visu.draw_graph(image.get_crop(0,y,0,1,image.width()-1,y,0,1),green,1,1,0,255,0);
-	//      visu.draw_graph(image.get_crop(0,y,0,2,image.width()-1,y,0,2),blue,1,1,0,255,0).display(draw_disp);
-	//      }
-	//    }
+	DELETE_OBJECT(scene);
+	DELETE_OBJECT(rayTracer);
 	return 0;
 
 }
