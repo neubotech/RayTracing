@@ -276,8 +276,8 @@ public:
 
 	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
 		V3f A = m_V1 - m_V0; 
-		V3f B = m_V1 - m_V0; 
-		// V3f S = m_V0 - _ray.m_pos;
+		V3f B = m_V2 - m_V0; 
+		// cout<<A<<" , "<<B<<endl;
 		V3f N=A.cross(B);
 		float notParallel=N.dot(_ray.m_dir);
 		if(notParallel==0){
@@ -285,10 +285,14 @@ public:
 			return false; //triangle is parallel
 		}
 		float d=N.dot(m_V0);
-		float t=-(N.dot(_ray.m_pos)+d)/notParallel;
-		if(t<0)
+		float t=(N.dot(_ray.m_pos)+d)/notParallel;
+
+
+		if(t<0){
 			cout<< "[triangle] ray is behind"<<endl;
-			return false; //triangle is behand
+			return false; //triangle is behind
+		}
+
 		V3f P=_ray.m_pos + t*_ray.m_dir;
 		V3f C;
 
@@ -296,6 +300,7 @@ public:
 		V3f VP0 = P - m_V0;
 		C=edge0.cross(VP0);
 		if(N.dot(C)<0){
+			cout<<"on the right of edge0"<<endl;
 			return false; //P is on the right side
 		}
 
@@ -303,6 +308,7 @@ public:
 		V3f VP1 = P - m_V1;
 		C=edge1.cross(VP1);
 		if(N.dot(C)<0){
+			cout<<"on the right of edge1"<<endl;
 			return false; //P is on the right side
 		}
 
@@ -310,9 +316,10 @@ public:
 		V3f VP2 = P - m_V2;
 		C=edge2.cross(VP2);
 		if(N.dot(C)<0){
+			cout<<"on the right of edge2"<<endl;
 			return false; //P is on the right side
 		}
-
+		cout<<"is inside"<<endl;
 		return true; 
 	} 
 
@@ -996,7 +1003,7 @@ CPrimitive* InitScene() {
 	brdf.p  = 6.0f;                       // specular 
 	scene->m_mat = new CMaterial(brdf);
 	//scene->m_shape = new CSphere(V3f(0.0f, 0.0f, -5.0f), 5.0f);
-	scene->m_shape = new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(15.0, 0.0, -5.0f), V3f(0.0, 15.0f, -5.0f));
+	scene->m_shape = new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(15.0, 1.0, 0.0f), V3f(0.0, 15.0f, -5.0f));
 	return (CPrimitive*)scene; 	
 }
 
