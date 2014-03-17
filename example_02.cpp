@@ -275,31 +275,73 @@ public:
 	}
 
 	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
-		V3f E1 = m_V0 - m_V1; 
-		V3f E2 = m_V0 - m_V2; 
-		V3f S = m_V0 - _ray.m_pos;
-		float d = det(_ray.m_dir, E1, E2);
-		if (d < EPS && d > -EPS)
-			return false; 
-		float d1 = det(S, E1, E2);
-		float t = d1 / d; 
-		if (t < _ray.m_t_min || t > _ray.m_t_max)
-			return false; 
-		float d2 = det(_ray.m_dir, S, E2);
-		float beta = d2 / d; 
-		if (beta < 0 || beta > 1)
-			return false; 
-		float d3 = det(_ray.m_dir, E1, S);
-		float gamma = d3 / d; 
-		if (gamma < 0 || gamma > 1 || beta + gamma > 1)
-			return false; 
+		V3f A = m_V1 - m_V0; 
+		V3f B = m_V1 - m_V0; 
+		// V3f S = m_V0 - _ray.m_pos;
+		V3f N=A.cross(B);
+		float notParallel=N.dot(_ray.m_dir);
+		if(notParallel==0){
+			cout<<"[triangle] ray parallel"<<endl;
+			return false; //triangle is parallel
+		}
+		float d=N.dot(m_V0);
+		float t=-(N.dot(_ray.m_pos)+d)/notParallel;
+		if(t<0)
+			cout<< "[triangle] ray is behind"<<endl;
+			return false; //triangle is behand
+		V3f P=_ray.m_pos + t*_ray.m_dir;
+		V3f C;
 
-		*_thit = t;
-		_local->m_pos = _ray.Ray_t(t);
-		_local->m_n = m_V0.cross(m_V1);
-		_local->m_n = _local->m_n / _local->m_n.norm();
+		V3f edge0 = m_V1 - m_V0;
+		V3f VP0 = P - m_V0;
+		C=edge0.cross(VP0);
+		if(N.dot(C)<0){
+			return false; //P is on the right side
+		}
+
+		V3f edge1= m_V2 - m_V1;
+		V3f VP1 = P - m_V1;
+		C=edge1.cross(VP1);
+		if(N.dot(C)<0){
+			return false; //P is on the right side
+		}
+
+		V3f edge2= m_V0 - m_V2;
+		V3f VP2 = P - m_V2;
+		C=edge2.cross(VP2);
+		if(N.dot(C)<0){
+			return false; //P is on the right side
+		}
+
 		return true; 
 	} 
+
+	// bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
+	// 	V3f E1 = m_V0 - m_V1; 
+	// 	V3f E2 = m_V0 - m_V2; 
+	// 	V3f S = m_V0 - _ray.m_pos;
+	// 	float d = det(_ray.m_dir, E1, E2);
+	// 	if (d < EPS && d > -EPS)
+	// 		return false; 
+	// 	float d1 = det(S, E1, E2);
+	// 	float t = d1 / d; 
+	// 	if (t < _ray.m_t_min || t > _ray.m_t_max)
+	// 		return false; 
+	// 	float d2 = det(_ray.m_dir, S, E2);
+	// 	float beta = d2 / d; 
+	// 	if (beta < 0 || beta > 1)
+	// 		return false; 
+	// 	float d3 = det(_ray.m_dir, E1, S);
+	// 	float gamma = d3 / d; 
+	// 	if (gamma < 0 || gamma > 1 || beta + gamma > 1)
+	// 		return false; 
+
+	// 	*_thit = t;
+	// 	_local->m_pos = _ray.Ray_t(t);
+	// 	_local->m_n = m_V0.cross(m_V1);
+	// 	_local->m_n = _local->m_n / _local->m_n.norm();
+	// 	return true; 
+	// } 
 
 	bool intersectP(CRay& _ray) {
 		V3f E1 = m_V0 - m_V1; 
