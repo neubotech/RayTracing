@@ -3,6 +3,8 @@
 #include <fstream>
 #include <cmath>
 #include <cstring>
+//#include "Timer.h"
+//#include <openmp>
 #pragma warning(disable: 4996)
 
 
@@ -39,8 +41,9 @@ using namespace cimg_library;
 //****************************************************
 // macros and inline functions
 //****************************************************
-#define EPS 1e-15f
-#define NUM_DEPTH 3
+#define EPS 1e-5f
+#define EPS_SELF 1e-6f
+#define NUM_DEPTH 2
 //#define NUM_LIGHTS 4
 //#ifdef _WIN32
 //#define INF 1e10f
@@ -56,36 +59,6 @@ inline float sqr(float x) { return x*x; }
 typedef unsigned char uchar; 
 typedef Vector3f V3f; 
 #define PRINT
-//****************************************************
-// Basic Classes
-//****************************************************
-// class Vector{
-// public:
-// 	Vector(float x, float y, float z)
-// public:
-// };
-
-// class Point:: public Vector3f{
-// public:
-// 	Point(float x, float y, float z)
-// 	: m_coord(x, y, z){}
-
-// public:
-// 	Vector3f m_coord;
-// };
-
-// //all the m_coord are normalized to 1
-// class Normal{
-// public:
-// 	Normal(float x, float y, float z)
-// 	:m_coord(x,y,z){
-// 		m_coord=m_coord/m_coord.norm();
-// 	}
-// public:
-// 	Vector3f m_coord;
-// 	// Vector4f m_hcoord;
-// };
-
 //***************************************************
 //Ray
 //*********************************************
@@ -274,54 +247,106 @@ public:
 		m_V0 = _V0; m_V1 = _V1; m_V2 = _V2; 
 	}
 
-	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
-		V3f A = m_V1 - m_V0; 
-		V3f B = m_V2 - m_V0; 
-		// cout<<A<<" , "<<B<<endl;
-		V3f N=A.cross(B);
-		float notParallel=N.dot(_ray.m_dir);
-		if(notParallel==0){
-			cout<<"[triangle] ray parallel"<<endl;
-			return false; //triangle is parallel
-		}
-		float d=N.dot(m_V0);
-		float t=(N.dot(_ray.m_pos)+d)/notParallel;
-
-
-		if(t<0){
-			cout<< "[triangle] ray is behind"<<endl;
-			return false; //triangle is behind
-		}
-
-		V3f P=_ray.m_pos + t*_ray.m_dir;
-		V3f C;
-
-		V3f edge0 = m_V1 - m_V0;
-		V3f VP0 = P - m_V0;
-		C=edge0.cross(VP0);
-		if(N.dot(C)<0){
-			cout<<"on the right of edge0"<<endl;
-			return false; //P is on the right side
-		}
-
-		V3f edge1= m_V2 - m_V1;
-		V3f VP1 = P - m_V1;
-		C=edge1.cross(VP1);
-		if(N.dot(C)<0){
-			cout<<"on the right of edge1"<<endl;
-			return false; //P is on the right side
-		}
-
-		V3f edge2= m_V0 - m_V2;
-		V3f VP2 = P - m_V2;
-		C=edge2.cross(VP2);
-		if(N.dot(C)<0){
-			cout<<"on the right of edge2"<<endl;
-			return false; //P is on the right side
-		}
-		cout<<"is inside"<<endl;
+	bool intersectP(CRay& _ray) {
+		V3f E1 = m_V0 - m_V1; 
+		V3f E2 = m_V0 - m_V2; 
+		V3f S = m_V0 - _ray.m_pos;
+		float d = det(_ray.m_dir, E1, E2);
+		if (d < EPS && d > -EPS)
+			return false; 
+		float d1 = det(S, E1, E2);
+		float t = d1 / d; 
+		if (t < _ray.m_t_min || t > _ray.m_t_max)
+			return false; 
+		float d2 = det(_ray.m_dir, S, E2);
+		float beta = d2 / d; 
+		if (beta < -EPS || beta - 1 > EPS)
+			return false; 
+		float d3 = det(_ray.m_dir, E1, S);
+		float gamma = d3 / d; 
+		if (gamma < -EPS || gamma - 1 > EPS || beta + gamma - 1 > EPS)
+			return false; 
 		return true; 
-	} 
+	}
+
+	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
+		V3f E1 = m_V0 - m_V1; 
+		V3f E2 = m_V0 - m_V2; 
+		V3f S = m_V0 - _ray.m_pos;
+		float d = det(_ray.m_dir, E1, E2);
+		if (d < EPS && d > -EPS)
+		 	return false; 
+		float d1 = det(S, E1, E2);
+		float t = d1 / d; 
+		if (t < _ray.m_t_min || t > _ray.m_t_max)
+		 	return false; 
+		float d2 = det(_ray.m_dir, S, E2);
+		float beta = d2 / d; 
+		if (beta < -EPS || beta  - 1 > EPS)
+		 	return false; 
+		float d3 = det(_ray.m_dir, E1, S);
+		float gamma = d3 / d; 
+		if (gamma < -EPS || gamma - 1 > EPS || beta + gamma - 1 > EPS)
+		 	return false; 
+		*_thit = t;
+		_local->m_pos = _ray.Ray_t(t);
+		_local->m_n = (m_V0-m_V1).cross(m_V0-m_V2);
+		_local->m_n = _local->m_n / _local->m_n.norm();
+		return true; 
+	}
+	//bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
+	//	V3f A = m_V1 - m_V0; 
+	//	V3f B = m_V2 - m_V0; 
+	//	// cout<<A<<" , "<<B<<endl;
+	//	V3f N=A.cross(B);
+	//	float notParallel=N.dot(_ray.m_dir);
+	//	if(notParallel==0){
+	//		//cout<<"[triangle] ray parallel"<<endl;
+	//		return false; //triangle is parallel
+	//	}
+	//	float d=N.dot(m_V0);
+	//	float t=(N.dot(_ray.m_pos)+d)/notParallel;
+
+
+	//	if(t<0){
+	//		//cout<< "[triangle] ray is behind"<<endl;
+	//		return false; //triangle is behind
+	//	}
+
+	//	V3f P=_ray.m_pos + t*_ray.m_dir;
+	//	V3f C;
+
+	//	V3f edge0 = m_V1 - m_V0;
+	//	V3f VP0 = P - m_V0;
+	//	C=edge0.cross(VP0);
+	//	if(N.dot(C)<0){
+	//		//cout<<"on the right of edge0"<<endl;
+	//		return false; //P is on the right side
+	//	}
+
+	//	V3f edge1= m_V2 - m_V1;
+	//	V3f VP1 = P - m_V1;
+	//	C=edge1.cross(VP1);
+	//	if(N.dot(C)<0){
+	//		//cout<<"on the right of edge1"<<endl;
+	//		return false; //P is on the right side
+	//	}
+
+	//	V3f edge2= m_V0 - m_V2;
+	//	V3f VP2 = P - m_V2;
+	//	C=edge2.cross(VP2);
+	//	if(N.dot(C)<0){
+	//		//cout<<"on the right of edge2"<<endl;
+	//		return false; //P is on the right side
+	//	}
+	//	//cout<<"is inside"<<endl;
+
+	//	*_thit = t;
+	//	_local->m_pos = _ray.Ray_t(t);
+	//	_local->m_n = (m_V0-m_V1).cross(m_V0-m_V2);
+	//	_local->m_n = _local->m_n / _local->m_n.norm();
+	//	return true; 
+	//} 
 
 	// bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
 	// 	V3f E1 = m_V0 - m_V1; 
@@ -350,28 +375,78 @@ public:
 	// 	return true; 
 	// } 
 
-	bool intersectP(CRay& _ray) {
-		V3f E1 = m_V0 - m_V1; 
-		V3f E2 = m_V0 - m_V2; 
-		V3f S = m_V0 - _ray.m_pos;
-		float d = det(_ray.m_dir, E1, E2);
-		if (d < EPS && d > -EPS)   // zero 
-			return false; 
-		float d1 = det(S, E1, E2);
-		float t = d1 / d; 
-		if (t < _ray.m_t_min || t > _ray.m_t_max)  // check t range 
-			return false; 
-		float d2 = det(_ray.m_dir, S, E2);
-		float beta = d2 / d; 
-		if (beta < 0 || beta > 1)                 // check beta
-			return false; 
-		float d3 = det(_ray.m_dir, E1, S);
-		float gamma = d3 / d;                       
-		if (gamma < 0 || gamma > 1 || beta + gamma > 1)   // check gamma
-			return false; 
-		
-		return true; 
-	}
+	//bool intersectP(CRay& _ray) {
+	//	V3f A = m_V1 - m_V0; 
+	//	V3f B = m_V2 - m_V0; 
+	//	// cout<<A<<" , "<<B<<endl;
+	//	V3f N=A.cross(B);
+	//	float notParallel=N.dot(_ray.m_dir);
+	//	if(notParallel==0){
+	//		//cout<<"[triangle] ray parallel"<<endl;
+	//		return false; //triangle is parallel
+	//	}
+	//	float d=N.dot(m_V0);
+	//	float t=(N.dot(_ray.m_pos)+d)/notParallel;
+
+
+	//	if(t<0){
+	//		//cout<< "[triangle] ray is behind"<<endl;
+	//		return false; //triangle is behind
+	//	}
+
+	//	V3f P=_ray.m_pos + t*_ray.m_dir;
+	//	V3f C;
+
+	//	V3f edge0 = m_V1 - m_V0;
+	//	V3f VP0 = P - m_V0;
+	//	C=edge0.cross(VP0);
+	//	if(N.dot(C)<0){
+	//		//cout<<"on the right of edge0"<<endl;
+	//		return false; //P is on the right side
+	//	}
+
+	//	V3f edge1= m_V2 - m_V1;
+	//	V3f VP1 = P - m_V1;
+	//	C=edge1.cross(VP1);
+	//	if(N.dot(C)<0){
+	//		//cout<<"on the right of edge1"<<endl;
+	//		return false; //P is on the right side
+	//	}
+
+	//	V3f edge2= m_V0 - m_V2;
+	//	V3f VP2 = P - m_V2;
+	//	C=edge2.cross(VP2);
+	//	if(N.dot(C)<0){
+	//		//cout<<"on the right of edge2"<<endl;
+	//		return false; //P is on the right side
+	//	}
+
+	//	//*_thit = t;
+	//	//_local->m_pos = _ray.Ray_t(t);
+	//	//_local->m_n = m_V0.cross(m_V1);
+	//	//_local->m_n = _local->m_n / _local->m_n.norm();
+	//	return true; 
+	//	//V3f E1 = m_V0 - m_V1; 
+	//	//V3f E2 = m_V0 - m_V2; 
+	//	//V3f S = m_V0 - _ray.m_pos;
+	//	//float d = det(_ray.m_dir, E1, E2);
+	//	//if (d < EPS && d > -EPS)   // zero 
+	//	//	return false; 
+	//	//float d1 = det(S, E1, E2);
+	//	//float t = d1 / d; 
+	//	//if (t < _ray.m_t_min || t > _ray.m_t_max)  // check t range 
+	//	//	return false; 
+	//	//float d2 = det(_ray.m_dir, S, E2);
+	//	//float beta = d2 / d; 
+	//	//if (beta < 0 || beta > 1)                 // check beta
+	//	//	return false; 
+	//	//float d3 = det(_ray.m_dir, E1, S);
+	//	//float gamma = d3 / d;                       
+	//	//if (gamma < 0 || gamma > 1 || beta + gamma > 1)   // check gamma
+	//	//	return false; 
+	//	//
+	//	//return true; 
+	//}
 
 private: 
 	V3f m_V0, m_V1, m_V2;     // 3D points
@@ -493,7 +568,6 @@ public:
 	CTransformation m_worldToObj; 
 	CShape* m_shape; 
 	CMaterial* m_mat; 
-
 };
 
 
@@ -506,17 +580,23 @@ public:
 
 	bool intersect(CRay& _ray, float* _thit, CIntersection* _in) {
 		float min_t = _ray.m_t_max + 1; 
-		CIntersection* min_in = NULL; 
+		//CIntersection* min_in = NULL; 
 		bool flag = false; 
 		FOR (i, m_numPrims) {
-			float t = 0.0f; 
-			CIntersection* in = new CIntersection(); 
-			if (m_primVec[i]->intersect(_ray, &t, in)) {
+			float t = 1e10f; 
+			CIntersection in; // = new CIntersection(); 
+			if (m_primVec[i]->intersect(_ray, &t, &in)) {
 				flag = true; 
 				if (t <= min_t) {
 					min_t = t; 
-					DELETE_OBJECT(min_in);  //BUG?
-					min_in = in;
+					//DELETE_OBJECT(min_in);  //BUG?
+					//min_in = _in;
+					//DELETE_OBJECT(_in);
+					//_in = in;
+					//_in->m_localGeo = in->m_localGeo;
+					//_in->m_prim = in->m_prim;
+					//DELETE_OBJECT(in);
+					*_in = in; 
 				}
 			}
 		}
@@ -549,24 +629,6 @@ class CBSPPrimitive : public CPrimitive {
 
 };
 
-//**********************************************
-//CLocalGeo
-//*********************************************************
-//class CLocalGeo{
-//public:
-//	CLocalGeo(){}
-//
-//	CLocalGeo(Vector3f _pos, Vector3f _normal)
-//	:m_pos(_pos.x(), _pos.y(), _pos.z()),
-//	m_normal(_normal.x(), _normal.y(), _normal.z()){
-//		m_normal=m_normal/m_normal.norm();
-//	}
-//public:
-//	Vector3f m_pos;
-//	Vector3f m_normal;
-//};
-
-
 
 //****************************************************
 // Light
@@ -597,25 +659,24 @@ public:
 	void generateLightRay(CLocalGeo& local, CRay* lray, CColor* lcolor) {
 		*lcolor = m_color;
 		if (m_type == Point) {
-			lray->m_pos=local.m_pos;
-			
+			lray->m_pos = local.m_pos + EPS_SELF * local.m_n; 
 			lray->m_dir = m_dir - local.m_pos;
-			lray->m_t_min = (float) 1e-3;
-			lray->m_t_max = INF; //(lray->m_dir).norm();
+			lray->m_t_min = 0.0f; //1e-6;
+			lray->m_t_max = lray->m_dir.norm();
 			lray->m_dir = lray->m_dir/lray->m_dir.norm();
-
-			lray->m_ray_start = local.m_pos;
+			
+			lray->m_ray_start = lray->m_pos;
 			lray->m_ray_end = m_dir;
 		} 
 
 		if (m_type == Directional) {
-			lray->m_pos=local.m_pos;
-			lray->m_dir=m_dir/m_dir.norm();
+			lray->m_pos = local.m_pos + EPS_SELF * local.m_n; 
+			lray->m_dir = m_dir / m_dir.norm();
 
-			lray->m_t_min=-INF;
-			lray->m_t_max=0;
-			lray->m_ray_start=-INF*lray->m_dir;
-			lray->m_ray_end=local.m_pos;
+			lray->m_t_min = 0.0f; 
+			lray->m_t_max = INF; 
+			lray->m_ray_start = lray->m_pos; 
+			lray->m_ray_end = V3f(INF, INF, INF); //local.m_pos;
 
 			// lray->m_t_min=0;
 			// lray->m_t_max=INF;
@@ -693,7 +754,9 @@ private:
 	CRay createReflectRay(CLocalGeo& _local, CRay& _ray) {
 		V3f n = _local.m_n;
 		V3f r = (n * 2 *_ray.m_dir.dot(n))- _ray.m_dir;
-		return CRay(_local.m_pos, r, EPS, INF);
+		//V3f pos = _local.m_pos + n * EPS_SELF; 
+		V3f pos = _local.m_pos; 
+		return CRay(pos, r, 1e-4f, INF);
 	}
 
 public: 
@@ -741,17 +804,17 @@ public:
 		}
 
 		// Handle mirror reflection
-		//if (brdf.kr.m_rgb[0] > 0 
-		//	|| brdf.kr.m_rgb[1] > 0 
-		//	|| brdf.kr.m_rgb[2] > 0) {
-		//	CRay reflectRay = createReflectRay(in.m_localGeo, ray);
-		//	//Make a recursive call to trace the reflected ray
-		//	CColor tempColor; 
-		//	trace(reflectRay, depth+1, &tempColor);
-		//	color->m_rgb[0] += tempColor.m_rgb[0] * brdf.kr.m_rgb[0];
-		//	color->m_rgb[1] += tempColor.m_rgb[1] * brdf.kr.m_rgb[1];
-		//	color->m_rgb[2] += tempColor.m_rgb[2] * brdf.kr.m_rgb[2];
-		//}
+		if (brdf.kr.m_rgb[0] > 0 
+			|| brdf.kr.m_rgb[1] > 0 
+			|| brdf.kr.m_rgb[2] > 0) {
+			CRay reflectRay = createReflectRay(in.m_localGeo, ray);
+			//Make a recursive call to trace the reflected ray
+			CColor tempColor; 
+			trace(reflectRay, depth+1, &tempColor);
+			color->m_rgb[0] += tempColor.m_rgb[0] * brdf.kr.m_rgb[0];
+			color->m_rgb[1] += tempColor.m_rgb[1] * brdf.kr.m_rgb[1];
+			color->m_rgb[2] += tempColor.m_rgb[2] * brdf.kr.m_rgb[2];
+		}
 
 	}
 };
@@ -816,12 +879,14 @@ public:
 
 	void ColorPixel(int i, int j, CColor color){
 		float mag = 255.0f; 
+		//color.Print(); 
 		m_pixel[i*m_w+j].m_color.m_rgb[0]=color.m_rgb[0]*mag;
 		m_pixel[i*m_w+j].m_color.m_rgb[1]=color.m_rgb[1]*mag;
 		m_pixel[i*m_w+j].m_color.m_rgb[2]=color.m_rgb[2]*mag;
 	/*	if (m_pixel[i*m_w+j].m_color.m_rgb[0] > 0 ||
 			m_pixel[i*m_w+j].m_color.m_rgb[1] > 0|| 
 			m_pixel[i*m_w+j].m_color.m_rgb[2] > 0) {
+
 			printf("non-zero");
 		}*/
 	}
@@ -906,17 +971,17 @@ public:
 			cerr<<"wrong sampler type, either: OverS or JitterS"<<endl;
 			return false;
 		}
-		Vector3f pos, dir;
+		
 		//float t_min, t_max;
 		//CRayTracer ray_tracer;
 		float num_samples = (float) over_sample_ratio * over_sample_ratio; 
-
+		//#pragma omp parallel for
 		for(int i=0; i< m_h; i++) {
 			for(int j=0; j<m_w; j++){
 			/*	if (i != 150 || j != 101)
 					continue; */
-				CColor temp;
-
+				CColor temp(0.0f, 0.0f, 0.0f);
+				Vector3f pos, dir;
 				for(int k=i; k<i+over_sample_ratio;k++) {
 					for(int g=j;g<j+over_sample_ratio;g++){
 						pos=m_sample[k*m_h*over_sample_ratio+g];
@@ -936,14 +1001,19 @@ public:
 				}
 
 				//temp.Print();
+				temp.m_rgb[0] /=num_samples;
+				temp.m_rgb[1] /= num_samples;
+				temp.m_rgb[2] /= num_samples;
+				/*if (temp.m_rgb[0] > 0.0 ||
+					temp.m_rgb[1] > 0.0 ||
+					temp.m_rgb[2] > 0.0) {
+					temp.Print();
+				}*/
+
 				ColorPixel(i,j,temp);
 
 			/*	m_pixel[i*m_w+j].m_color =  m_pixel[i*m_w+j].m_color.Add(temp);
-				if (m_pixel[i*m_w+j].m_color.m_rgb[0] > 0.0 ||
-					m_pixel[i*m_w+j].m_color.m_rgb[1] > 0.0 ||
-					m_pixel[i*m_w+j].m_color.m_rgb[2] > 0.0) {
-					printf("non-zero\n");
-				}
+			
 				m_pixel[i*m_w+j].m_color.m_rgb[0] /= num_samples;
 				m_pixel[i*m_w+j].m_color.m_rgb[1] /= num_samples;
 				m_pixel[i*m_w+j].m_color.m_rgb[2] /= num_samples;*/
@@ -961,7 +1031,7 @@ public:
 		m_pixel[200].m_color.m_rgb[1] = 1;
 	    m_pixel[200].m_color.m_rgb[2] = 1;*/
 		cimg_forXYC(img, x, y, c) {img(x,m_h-y-1,c)=(unsigned char) m_pixel[x*m_w+y].m_color.m_rgb[c];}
-		img.normalize(0,255);
+		//img.normalize(0,255);
 		//img.save("Scene.bmp");
 		img.display("RayTracer");
 		return true;
@@ -990,32 +1060,55 @@ public:
 };
 
 CPrimitive* InitScene() { 
-	CGeometricPrimitive* scene = new CGeometricPrimitive();
-	scene->m_objToWorld = CTransformation();
-	scene->m_worldToObj = CTransformation();
+	vector<CPrimitive*> primList; 
 	CBRDF brdf; 
 
-	brdf.ka = CColor(0.5f, 0.0f, 0.0f);   // ambient 
-	brdf.kd = CColor(0.0f, 0.0f, 0.0f);   // diffuse
+	brdf.ka = CColor(0.0f, 0.0f, 0.0f);   // ambient 
+	brdf.kd = CColor(1.0f, 0.0f, 0.0f);   // diffuse
 	brdf.ks = CColor(0.0f, 0.0f, 0.0f);   // specular
 	//brdf.ks = CColor(0.2f, 0.2f, 0.2f);   // specular
-	brdf.kr = CColor(0.0f, 0.0f, 0.0f);   // reflection
-	brdf.p  = 6.0f;                       // specular 
-	scene->m_mat = new CMaterial(brdf);
+	brdf.kr = CColor(1.0f, 1.0f, 1.0f);   // reflection
+	brdf.p  = 16.0f;         
+	//CMaterial* mat = ;
+	CTransformation T; 
+	CGeometricPrimitive* prim1 = new CGeometricPrimitive(); 
+	prim1->m_objToWorld = T; 
+	prim1->m_worldToObj = T; 
+	prim1->m_mat = new CMaterial(brdf); 
+	prim1->m_shape = new CSphere(V3f(-5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
+	primList.push_back(prim1);
+	CGeometricPrimitive* prim2 = new CGeometricPrimitive(); 
+	prim2->m_objToWorld = T; prim2->m_worldToObj = T; 
+	brdf.kd =  CColor(0.0f, 1.0f, 0.0f);   // diffuse
+	prim2->m_mat = new CMaterial(brdf); 
+	prim2->m_shape = new CSphere(V3f(5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -10.0f), V3f(15.0, 0.0, -10.0f), V3f(0.0, 15.0f, -10.0f));
+	primList.push_back(prim2);
+
+	CAggregatePrimitive* scene = new CAggregatePrimitive(primList);
+	//scene->m_objToWorld = CTransformation();
+	//scene->m_worldToObj = CTransformation();
+	              // specular 
+	//scene->m_mat = new CMaterial(brdf);
 	//scene->m_shape = new CSphere(V3f(0.0f, 0.0f, -5.0f), 5.0f);
-	scene->m_shape = new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(15.0, 1.0, 0.0f), V3f(0.0, 15.0f, -5.0f));
+
+	//scene->m_shape = new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(15.0, 0.0, -0.0f), V3f(0.0, 15.0f, -5.0f));
 	return (CPrimitive*)scene; 	
 }
 
 
+void ParseObject() {
+
+}
+
 vector<CLight*> InitLights() {
 	vector<CLight*> lights; 
-	CLight* light1 = new CLight(V3f(50.0f, 50.0f, 50.0f), CColor(1.0f, 1.0f, 1.0f), CLight::Directional);
+	CLight* light1 = new CLight(V3f(0.0f, 0.0f, 50.0f), CColor(1.0f, 1.0f, 1.0f), CLight::Point);
 	lights.push_back(light1);
 	return lights; 
 }
 
 int main(int argc, char *argv[]){
+	//CTimer* timer = new CTimer("ray tracing");
 	//Matrix3f m3;
 	//m3 << 1, 2, 3, 4, 5, 6, 7, 8, 9;
 	//Matrix4f m4=Matrix4f::Identity();
@@ -1031,7 +1124,7 @@ int main(int argc, char *argv[]){
 
 
 	Vector3f eye(0,0,5);
-	int w = 256; 
+	int w = 1024; 
 	int h = w;
 	Vector3f LL(-10, -10, 0), UL(-10,10, 0),
 		LR(10, -10, 0), UR(10, 10, 0);
@@ -1044,10 +1137,16 @@ int main(int argc, char *argv[]){
 	CPrimitive* scene = InitScene(); 
 	rayTracer->Setup(scene, lights);
 	camera.SetupRayTracer(rayTracer);
+	omp_set_num_threads(12);
+
+	
 	camera.Sample(1, over_sample_ratio, CCamera::OverS);
+	//DELETE_OBJECT(timer);
+
+
 	camera.Film();
 
-	FOR (i, lights.size())
+	FOR_u (i, lights.size())
 		DELETE_OBJECT(lights[i]);
 
 	DELETE_OBJECT(scene);
