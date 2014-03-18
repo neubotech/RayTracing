@@ -55,6 +55,7 @@ using namespace cimg_library;
 #define FOR_u(i, n) for (size_t i = 0; i < n; i++)                  // for loop 
 #define SQUARE(x) ((x)*(x))
 #define INF (float) 1e10
+#define PI (float) 3.1415926
 inline float sqr(float x) { return x*x; }
 typedef unsigned char uchar; 
 typedef Vector3f V3f; 
@@ -835,6 +836,45 @@ public:
 	// : m_w(768), m_h(512), m_width(30.0), m_height(20.0),
 	// 	m_center(0,0,0), m_normal(0,0,1){}
 	void SetupRayTracer(CRayTracer* _tracer ) { m_rayTracer = _tracer; }
+
+
+
+	CCamera(Vector3f _eye, float FOV_angle, Vector3f LookAt, Vector3f UpX, Vector3f UpY, int _w, int _h)
+		:m_eye(_eye.x(), _eye.y(), _eye.z()),
+		m_w(_w), m_h(_h){
+
+			Vector3f Dir=LookAt-_eye;
+			Dir=Dir/Dir.norm();
+
+			//screen center is at a unit vecter Dir away from eye (always)
+			m_center= _eye + Dir;
+
+			//up vectors of the screen, normalized
+			UpX=UpX/UpX.norm();
+			UpY=UpY/UpY.norm();
+
+			
+			float asp_ratio=((float)_w)/_h;
+
+			m_height=2 *tan(FOV_angle/(2*180*PI));
+
+			m_width = m_height*asp_ratio;
+
+			UR = m_center + m_width/2*UpX + m_height/2*UpY;
+			LR = m_center + m_width/2*UpX - m_height/2*UpY;
+			UL = m_center - m_width/2*UpX + m_height/2*UpY;
+			LL = m_center - m_width/2*UpX - m_height/2*UpY;
+
+			//make sure direction is right
+			//normal pointing toward eye
+			m_normal=(LL-LR).cross(LL-UL);
+			m_normal=m_normal/m_normal.norm();
+
+			// m_sample=new Vector3f[m_w*m_h*m_over_sample_ratio*m_over_sample_ratio];
+			m_pixel=new Pixel[m_w*m_h];
+
+	}
+
 	CCamera(Vector3f _eye, int _w, int _h, Vector3f _LL, Vector3f _UL, Vector3f _LR, Vector3f _UR)
 		:m_eye(_eye.x(), _eye.y(), _eye.z()),
 		m_w(_w), m_h(_h), 
@@ -851,30 +891,43 @@ public:
 			// m_sample=new Vector3f[m_w*m_h*m_over_sample_ratio*m_over_sample_ratio];
 			m_pixel=new Pixel[m_w*m_h];
 
-			//////////////////////////////////////////
-			//pixel coordinates and color initialization
-			//////////////////////////////////////////
+	}
 
+	void Change(Vector3f _eye, float FOV_angle, Vector3f LookAt, Vector3f UpX, Vector3f UpY, int _w, int _h){
+			m_eye = _eye;
+			m_w = _w;
+			m_h = _h;
 
-			float u_step=1.0f/m_w;
-			float v_step=1.0f/m_h;
+			Vector3f Dir=LookAt-_eye;
+			Dir=Dir/Dir.norm();
 
-			float u=u_step/2.0f;
-			float v=v_step/2.0f;
+			//screen center is at a unit vecter Dir away from eye (always)
+			m_center= _eye + Dir;
 
-			for (int i=0; i<m_h; i++){
-				for(int j=0; j< m_w; j++){
-					m_pixel[i*m_w+j].m_coord=u*(v*UR+(1-v)*LR)+(1-u)*(v*UL+(1-v)*LL);
-					// m_pixel[i*m_w+j].m_color.m_rgb[0]=0.0;
-					// m_pixel[i*m_w+j].m_color.m_rgb[1]=0.0;
-					// m_pixel[i*m_w+j].m_color.m_rgb[2]=0.0;
+			//up vectors of the screen, normalized
+			UpX=UpX/UpX.norm();
+			UpY=UpY/UpY.norm();
 
-					// cout<<m_pixel[i*m_w+j].m_coord<<endl;
-					u+=u_step;
-				}
-				u=u_step/2.0f;
-				v+=v_step;
-			}
+			
+			float asp_ratio=((float)_w)/_h;
+
+			m_height=2 *tan(FOV_angle/(2*180*PI));
+
+			m_width = m_height*asp_ratio;
+
+			UR = m_center + m_width/2*UpX + m_height/2*UpY;
+			LR = m_center + m_width/2*UpX - m_height/2*UpY;
+			UL = m_center - m_width/2*UpX + m_height/2*UpY;
+			LL = m_center - m_width/2*UpX - m_height/2*UpY;
+
+			//make sure direction is right
+			//normal pointing toward eye
+			m_normal=(LL-LR).cross(LL-UL);
+			m_normal=m_normal/m_normal.norm();
+
+			// m_sample=new Vector3f[m_w*m_h*m_over_sample_ratio*m_over_sample_ratio];
+			m_pixel=new Pixel[m_w*m_h];
+
 	}
 
 	void ColorPixel(int i, int j, CColor color){
@@ -1127,13 +1180,24 @@ int main(int argc, char *argv[]){
 
 	Vector3f eye(0,0,5);
 	int w = 500; 
-	int h = w;
-	Vector3f LL(-10, -10, 0), UL(-10,10, 0),
-		LR(10, -10, 0), UR(10, 10, 0);
+	int h = 200;
+	// Vector3f LL(-10, -4, 0), UL(-10,4, 0),
+	// 	LR(10, -4, 0), UR(10, 4, 0);
 	int over_sample_ratio=3;
-	CColor pixel(1,0,0);
+	// CColor pixel(1,0,0);
 
-	CCamera camera(eye, w, h, LL, UL, LR, UR);
+	float FOV_angle=90.0f;
+	Vector3f UpX(1,0,0);
+	Vector3f UpY(0,1,0);
+	Vector3f LookAt(0, 0, 0);
+
+
+	// CCamera camera(eye, w, h, LL, UL, LR, UR);
+
+	CCamera camera(eye, FOV_angle, LookAt, UpX, UpY, w, h);
+		
+
+
 	CRayTracer* rayTracer = new CRayTracer(); 
 	vector<CLight*> lights = InitLights(); 
 	CPrimitive* scene = InitScene(); 
@@ -1142,7 +1206,7 @@ int main(int argc, char *argv[]){
 	// omp_set_num_threads(12);
 
 
-	camera.Sample(1, over_sample_ratio, CCamera::OverS);
+	camera.Sample(2, over_sample_ratio, CCamera::OverS);
 	//DELETE_OBJECT(timer);
 
 
