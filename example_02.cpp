@@ -1245,19 +1245,28 @@ CPrimitive* InitScene() {
 	brdf.kr = CColor(1.0f, 1.0f, 1.0f);   // reflection
 	brdf.p  = 16.0f;         
 	//CMaterial* mat = ;
-	CTransformation T; 
+
+	CMatrix m;
+	// m.scale(Vector3f(1,2,1));
+	// m.translate(Vector3f(0,0,-10));
+
+	// CTransformation T(m); 
 	CGeometricPrimitive* prim1 = new CGeometricPrimitive(); 
-	prim1->m_objToWorld = T; 
-	prim1->m_worldToObj = T; 
+	prim1->m_objToWorld = CTransformation(m); 
+	
+	CMatrix M;
+	// M.translate(Vector3f(0,0,10));
+
+	prim1->m_worldToObj = CTransformation(M); 
 	prim1->m_mat = new CMaterial(brdf); 
-	prim1->m_shape = new CSphere(V3f(-5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
+	prim1->m_shape = new CSphere(V3f(0.0f, 0.0f, 0.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
 	primList.push_back(prim1);
-	CGeometricPrimitive* prim2 = new CGeometricPrimitive(); 
-	prim2->m_objToWorld = T; prim2->m_worldToObj = T; 
-	brdf.kd =  CColor(0.0f, 1.0f, 0.0f);   // diffuse
-	prim2->m_mat = new CMaterial(brdf); 
-	prim2->m_shape = new CSphere(V3f(5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -10.0f), V3f(15.0, 0.0, -10.0f), V3f(0.0, 15.0f, -10.0f));
-	primList.push_back(prim2);
+	// CGeometricPrimitive* prim2 = new CGeometricPrimitive(); 
+	// prim2->m_objToWorld = T; prim2->m_worldToObj = T; 
+	// brdf.kd =  CColor(0.0f, 1.0f, 0.0f);   // diffuse
+	// prim2->m_mat = new CMaterial(brdf); 
+	// prim2->m_shape = new CSphere(V3f(5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -10.0f), V3f(15.0, 0.0, -10.0f), V3f(0.0, 15.0f, -10.0f));
+	// primList.push_back(prim2);
 
 	CAggregatePrimitive* scene = new CAggregatePrimitive(primList);
 	//scene->m_objToWorld = CTransformation();
@@ -1299,7 +1308,7 @@ int main(int argc, char *argv[]){
 
 
 	Vector3f eye(0,0,5);
-	int w = 1024; 
+	int w = 100; 
 	int h = w;
 	Vector3f LL(-10, -10, 0), UL(-10,10, 0),
 		LR(10, -10, 0), UR(10, 10, 0);
@@ -1309,10 +1318,14 @@ int main(int argc, char *argv[]){
 	CCamera camera(eye, w, h, LL, UL, LR, UR);
 	CRayTracer* rayTracer = new CRayTracer(); 
 	vector<CLight*> lights = InitLights(); 
+
 	CPrimitive* scene = InitScene(); 
+
 	rayTracer->Setup(scene, lights);
+
 	camera.SetupRayTracer(rayTracer);
-	omp_set_num_threads(12);
+
+	// omp_set_num_threads(12);
 
 	
 	camera.Sample(1, over_sample_ratio, CCamera::OverS);
