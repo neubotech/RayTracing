@@ -856,7 +856,7 @@ public:
 			
 			float asp_ratio=((float)_w)/_h;
 
-			m_height=2 *tan(FOV_angle/(2*180*PI));
+			m_height=2 * tan(FOV_angle/(2*180)*PI);
 
 			m_width = m_height*asp_ratio;
 
@@ -872,6 +872,8 @@ public:
 
 			// m_sample=new Vector3f[m_w*m_h*m_over_sample_ratio*m_over_sample_ratio];
 			m_pixel=new Pixel[m_w*m_h];
+
+			// cout << LL << LR << UL << UR << m_center << Dir << endl;
 
 	}
 
@@ -919,6 +921,8 @@ public:
 			LR = m_center + m_width/2*UpX - m_height/2*UpY;
 			UL = m_center - m_width/2*UpX + m_height/2*UpY;
 			LL = m_center - m_width/2*UpX - m_height/2*UpY;
+
+			// cout << LL << LR << UL << UR << endl;
 
 			//make sure direction is right
 			//normal pointing toward eye
@@ -1130,14 +1134,14 @@ CPrimitive* InitScene() {
 	prim1->m_objToWorld = T; 
 	prim1->m_worldToObj = T; 
 	prim1->m_mat = new CMaterial(brdf); 
-	prim1->m_shape = new CSphere(V3f(-5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
+	prim1->m_shape = new CSphere(V3f(-0.0f, -0.0f, -0.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
 	primList.push_back(prim1);
 	CGeometricPrimitive* prim2 = new CGeometricPrimitive(); 
 	prim2->m_objToWorld = T; prim2->m_worldToObj = T; 
 	brdf.kd =  CColor(0.0f, 1.0f, 0.0f);   // diffuse
 	prim2->m_mat = new CMaterial(brdf); 
 	prim2->m_shape = new CSphere(V3f(5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -10.0f), V3f(15.0, 0.0, -10.0f), V3f(0.0, 15.0f, -10.0f));
-	primList.push_back(prim2);
+	// primList.push_back(prim2);
 
 	CAggregatePrimitive* scene = new CAggregatePrimitive(primList);
 	//scene->m_objToWorld = CTransformation();
@@ -1178,7 +1182,7 @@ int main(int argc, char *argv[]){
 	//	<<ray.hasPoint(p_point, .1f)<<endl;
 
 
-	Vector3f eye(0,0,5);
+
 	int w = 500; 
 	int h = 200;
 	// Vector3f LL(-10, -4, 0), UL(-10,4, 0),
@@ -1186,11 +1190,17 @@ int main(int argc, char *argv[]){
 	int over_sample_ratio=3;
 	// CColor pixel(1,0,0);
 
-	float FOV_angle=90.0f;
-	Vector3f UpX(1,0,0);
-	Vector3f UpY(0,1,0);
-	Vector3f LookAt(0, 0, 0);
+	float FOV_angle=45.0f;
 
+	// Vector3f eye(0,0,50);
+	// Vector3f UpX(1,0,0);
+	// Vector3f UpY(0,1,0);
+	// Vector3f LookAt(0, 0, 0);
+
+	Vector3f eye(0,50,0);
+	Vector3f UpX(1,0,0);
+	Vector3f UpY(0,0,1);
+	Vector3f LookAt(0, 0, 0);
 
 	// CCamera camera(eye, w, h, LL, UL, LR, UR);
 
@@ -1206,7 +1216,7 @@ int main(int argc, char *argv[]){
 	// omp_set_num_threads(12);
 
 
-	camera.Sample(2, over_sample_ratio, CCamera::OverS);
+	camera.Sample(1, over_sample_ratio, CCamera::OverS);
 	//DELETE_OBJECT(timer);
 
 
