@@ -839,7 +839,7 @@ public:
 
 
 
-	CCamera(Vector3f _eye, float FOV_angle, Vector3f LookAt, Vector3f UpX, Vector3f UpY, int _w, int _h)
+	CCamera(Vector3f _eye, float FOV_angle, Vector3f LookAt, Vector3f Up, int _w, int _h)
 		:m_eye(_eye.x(), _eye.y(), _eye.z()),
 		m_w(_w), m_h(_h){
 
@@ -850,8 +850,11 @@ public:
 			m_center= _eye + Dir;
 
 			//up vectors of the screen, normalized
-			UpX=UpX/UpX.norm();
-			UpY=UpY/UpY.norm();
+			Up=Up/Up.norm();
+
+			Vector3f Right=Dir.cross(Up);
+			Right=Right/Right.norm();
+			
 
 			
 			float asp_ratio=((float)_w)/_h;
@@ -860,10 +863,10 @@ public:
 
 			m_width = m_height*asp_ratio;
 
-			UR = m_center + m_width/2*UpX + m_height/2*UpY;
-			LR = m_center + m_width/2*UpX - m_height/2*UpY;
-			UL = m_center - m_width/2*UpX + m_height/2*UpY;
-			LL = m_center - m_width/2*UpX - m_height/2*UpY;
+			UR = m_center + m_width/2*Right + m_height/2*Up;
+			LR = m_center + m_width/2*Right - m_height/2*Up;
+			UL = m_center - m_width/2*Right + m_height/2*Up;
+			LL = m_center - m_width/2*Right - m_height/2*Up;
 
 			//make sure direction is right
 			//normal pointing toward eye
@@ -895,7 +898,7 @@ public:
 
 	}
 
-	void Change(Vector3f _eye, float FOV_angle, Vector3f LookAt, Vector3f UpX, Vector3f UpY, int _w, int _h){
+	void Change(Vector3f _eye, float FOV_angle, Vector3f LookAt, Vector3f Up, int _w, int _h){
 			m_eye = _eye;
 			m_w = _w;
 			m_h = _h;
@@ -907,20 +910,23 @@ public:
 			m_center= _eye + Dir;
 
 			//up vectors of the screen, normalized
-			UpX=UpX/UpX.norm();
-			UpY=UpY/UpY.norm();
+			Up=Up/Up.norm();
+
+			Vector3f Right=Dir.cross(Up);
+			Right=Right/Right.norm();
+			
 
 			
 			float asp_ratio=((float)_w)/_h;
 
-			m_height=2 *tan(FOV_angle/(2*180*PI));
+			m_height=2 * tan(FOV_angle/(2*180)*PI);
 
 			m_width = m_height*asp_ratio;
 
-			UR = m_center + m_width/2*UpX + m_height/2*UpY;
-			LR = m_center + m_width/2*UpX - m_height/2*UpY;
-			UL = m_center - m_width/2*UpX + m_height/2*UpY;
-			LL = m_center - m_width/2*UpX - m_height/2*UpY;
+			UR = m_center + m_width/2*Right + m_height/2*Up;
+			LR = m_center + m_width/2*Right - m_height/2*Up;
+			UL = m_center - m_width/2*Right + m_height/2*Up;
+			LL = m_center - m_width/2*Right - m_height/2*Up;
 
 			// cout << LL << LR << UL << UR << endl;
 
@@ -1035,9 +1041,9 @@ public:
 		//#pragma omp parallel for
 		for(int i=0; i< m_h; i++) {
 			for(int j=0; j<m_w; j++){
-				if (i == 250 && j == 250){
-					int t=1; 
-				}
+				// if (i == 250 && j == 250){
+				// 	int t=1; 
+				// }
 				CColor temp(0.0f, 0.0f, 0.0f);
 				Vector3f pos, dir;
 				for(int k=i*over_sample_ratio; k<(i+1)*over_sample_ratio;k++) {
@@ -1198,13 +1204,12 @@ int main(int argc, char *argv[]){
 	// Vector3f LookAt(0, 0, 0);
 
 	Vector3f eye(0,50,0);
-	Vector3f UpX(1,0,0);
-	Vector3f UpY(0,0,1);
+	Vector3f Up(0, 0, -1);
 	Vector3f LookAt(0, 0, 0);
 
 	// CCamera camera(eye, w, h, LL, UL, LR, UR);
 
-	CCamera camera(eye, FOV_angle, LookAt, UpX, UpY, w, h);
+	CCamera camera(eye, FOV_angle, LookAt, Up, w, h);
 		
 
 
