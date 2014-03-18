@@ -1,4 +1,4 @@
-#include <vector>
+﻿#include <vector>
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -249,106 +249,106 @@ public:
 		m_V0 = _V0; m_V1 = _V1; m_V2 = _V2; 
 	}
 
-	bool intersectP(CRay& _ray) {
-		V3f E1 = m_V0 - m_V1; 
-		V3f E2 = m_V0 - m_V2; 
-		V3f S = m_V0 - _ray.m_pos;
-		float d = det(_ray.m_dir, E1, E2);
-		if (d < EPS && d > -EPS)
-			return false; 
-		float d1 = det(S, E1, E2);
-		float t = d1 / d; 
-		if (t < _ray.m_t_min || t > _ray.m_t_max)
-			return false; 
-		float d2 = det(_ray.m_dir, S, E2);
-		float beta = d2 / d; 
-		if (beta < -EPS || beta - 1 > EPS)
-			return false; 
-		float d3 = det(_ray.m_dir, E1, S);
-		float gamma = d3 / d; 
-		if (gamma < -EPS || gamma - 1 > EPS || beta + gamma - 1 > EPS)
-			return false; 
-		return true; 
-	}
+	//bool intersectP(CRay& _ray) {
+	//	V3f E1 = m_V0 - m_V1; 
+	//	V3f E2 = m_V0 - m_V2; 
+	//	V3f S = m_V0 - _ray.m_pos;
+	//	float d = det(_ray.m_dir, E1, E2);
+	//	if (d < EPS && d > -EPS)
+	//		return false; 
+	//	float d1 = det(S, E1, E2);
+	//	float t = d1 / d; 
+	//	if (t < _ray.m_t_min || t > _ray.m_t_max)
+	//		return false; 
+	//	float d2 = det(_ray.m_dir, S, E2);
+	//	float beta = d2 / d; 
+	//	if (beta < -EPS || beta - 1 > EPS)
+	//		return false; 
+	//	float d3 = det(_ray.m_dir, E1, S);
+	//	float gamma = d3 / d; 
+	//	if (gamma < -EPS || gamma - 1 > EPS || beta + gamma - 1 > EPS)
+	//		return false; 
+	//	return true; 
+	//}
 
-	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
-		V3f E1 = m_V0 - m_V1; 
-		V3f E2 = m_V0 - m_V2; 
-		V3f S = m_V0 - _ray.m_pos;
-		float d = det(_ray.m_dir, E1, E2);
-		if (d < EPS && d > -EPS)
-		 	return false; 
-		float d1 = det(S, E1, E2);
-		float t = d1 / d; 
-		if (t < _ray.m_t_min || t > _ray.m_t_max)
-		 	return false; 
-		float d2 = det(_ray.m_dir, S, E2);
-		float beta = d2 / d; 
-		if (beta < -EPS || beta  - 1 > EPS)
-		 	return false; 
-		float d3 = det(_ray.m_dir, E1, S);
-		float gamma = d3 / d; 
-		if (gamma < -EPS || gamma - 1 > EPS || beta + gamma - 1 > EPS)
-		 	return false; 
-		*_thit = t;
-		_local->m_pos = _ray.Ray_t(t);
-		_local->m_n = (m_V0-m_V1).cross(m_V0-m_V2);
-		_local->m_n = _local->m_n / _local->m_n.norm();
-		return true; 
-	}
 	//bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
-	//	V3f A = m_V1 - m_V0; 
-	//	V3f B = m_V2 - m_V0; 
-	//	// cout<<A<<" , "<<B<<endl;
-	//	V3f N=A.cross(B);
-	//	float notParallel=N.dot(_ray.m_dir);
-	//	if(notParallel==0){
-	//		//cout<<"[triangle] ray parallel"<<endl;
-	//		return false; //triangle is parallel
-	//	}
-	//	float d=N.dot(m_V0);
-	//	float t=(N.dot(_ray.m_pos)+d)/notParallel;
-
-
-	//	if(t<0){
-	//		//cout<< "[triangle] ray is behind"<<endl;
-	//		return false; //triangle is behind
-	//	}
-
-	//	V3f P=_ray.m_pos + t*_ray.m_dir;
-	//	V3f C;
-
-	//	V3f edge0 = m_V1 - m_V0;
-	//	V3f VP0 = P - m_V0;
-	//	C=edge0.cross(VP0);
-	//	if(N.dot(C)<0){
-	//		//cout<<"on the right of edge0"<<endl;
-	//		return false; //P is on the right side
-	//	}
-
-	//	V3f edge1= m_V2 - m_V1;
-	//	V3f VP1 = P - m_V1;
-	//	C=edge1.cross(VP1);
-	//	if(N.dot(C)<0){
-	//		//cout<<"on the right of edge1"<<endl;
-	//		return false; //P is on the right side
-	//	}
-
-	//	V3f edge2= m_V0 - m_V2;
-	//	V3f VP2 = P - m_V2;
-	//	C=edge2.cross(VP2);
-	//	if(N.dot(C)<0){
-	//		//cout<<"on the right of edge2"<<endl;
-	//		return false; //P is on the right side
-	//	}
-	//	//cout<<"is inside"<<endl;
-
+	//	V3f E1 = m_V0 - m_V1; 
+	//	V3f E2 = m_V0 - m_V2; 
+	//	V3f S = m_V0 - _ray.m_pos;
+	//	float d = det(_ray.m_dir, E1, E2);
+	//	if (d < EPS && d > -EPS)
+	//	 	return false; 
+	//	float d1 = det(S, E1, E2);
+	//	float t = d1 / d; 
+	//	if (t < _ray.m_t_min || t > _ray.m_t_max)
+	//	 	return false; 
+	//	float d2 = det(_ray.m_dir, S, E2);
+	//	float beta = d2 / d; 
+	//	if (beta < -EPS || beta  - 1 > EPS)
+	//	 	return false; 
+	//	float d3 = det(_ray.m_dir, E1, S);
+	//	float gamma = d3 / d; 
+	//	if (gamma < -EPS || gamma - 1 > EPS || beta + gamma - 1 > EPS)
+	//	 	return false; 
 	//	*_thit = t;
 	//	_local->m_pos = _ray.Ray_t(t);
 	//	_local->m_n = (m_V0-m_V1).cross(m_V0-m_V2);
 	//	_local->m_n = _local->m_n / _local->m_n.norm();
 	//	return true; 
-	//} 
+	//}
+	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
+		V3f A = m_V1 - m_V0; 
+		V3f B = m_V2 - m_V0; 
+		// cout<<A<<" , "<<B<<endl;
+		V3f N=A.cross(B);
+		float notParallel=N.dot(_ray.m_dir);
+		if(notParallel==0){
+			//cout<<"[triangle] ray parallel"<<endl;
+			return false; //triangle is parallel
+		}
+		float d=N.dot(m_V0);
+		float t=(N.dot(_ray.m_pos)+d)/notParallel;
+
+
+		if(t<_ray.m_t_min || t > _ray.m_t_max){
+			//cout<< "[triangle] ray is behind"<<endl;
+			return false; //triangle is behind
+		}
+
+		V3f P=_ray.m_pos + t*_ray.m_dir;
+		V3f C;
+
+		V3f edge0 = m_V1 - m_V0;
+		V3f VP0 = P - m_V0;
+		C=edge0.cross(VP0);
+		if(N.dot(C)<0){
+			//cout<<"on the right of edge0"<<endl;
+			return false; //P is on the right side
+		}
+
+		V3f edge1= m_V2 - m_V1;
+		V3f VP1 = P - m_V1;
+		C=edge1.cross(VP1);
+		if(N.dot(C)<0){
+			//cout<<"on the right of edge1"<<endl;
+			return false; //P is on the right side
+		}
+
+		V3f edge2= m_V0 - m_V2;
+		V3f VP2 = P - m_V2;
+		C=edge2.cross(VP2);
+		if(N.dot(C)<0){
+			//cout<<"on the right of edge2"<<endl;
+			return false; //P is on the right side
+		}
+		//cout<<"is inside"<<endl;
+
+		*_thit = t;
+		_local->m_pos = _ray.Ray_t(t);
+		_local->m_n = (m_V0-m_V1).cross(m_V0-m_V2);
+		_local->m_n = _local->m_n / _local->m_n.norm();
+		return true; 
+	} 
 
 	// bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
 	// 	V3f E1 = m_V0 - m_V1; 
@@ -377,57 +377,58 @@ public:
 	// 	return true; 
 	// } 
 
-	//bool intersectP(CRay& _ray) {
-	//	V3f A = m_V1 - m_V0; 
-	//	V3f B = m_V2 - m_V0; 
-	//	// cout<<A<<" , "<<B<<endl;
-	//	V3f N=A.cross(B);
-	//	float notParallel=N.dot(_ray.m_dir);
-	//	if(notParallel==0){
-	//		//cout<<"[triangle] ray parallel"<<endl;
-	//		return false; //triangle is parallel
-	//	}
-	//	float d=N.dot(m_V0);
-	//	float t=(N.dot(_ray.m_pos)+d)/notParallel;
+	bool intersectP(CRay& _ray) {
+		V3f A = m_V1 - m_V0; 
+		V3f B = m_V2 - m_V0; 
+		// cout<<A<<" , "<<B<<endl;
+		V3f N=A.cross(B);
+		float notParallel=N.dot(_ray.m_dir);
+		if(notParallel==0){
+			//cout<<"[triangle] ray parallel"<<endl;
+			return false; //triangle is parallel
+		}
+		float d=N.dot(m_V0);
+		float t=(N.dot(_ray.m_pos)+d)/notParallel;
 
 
-	//	if(t<0){
-	//		//cout<< "[triangle] ray is behind"<<endl;
-	//		return false; //triangle is behind
-	//	}
+		if(t<_ray.m_t_min || t > _ray.m_t_max){
+			//cout<< "[triangle] ray is behind"<<endl;
+			return false; //triangle is behind
+		}
 
-	//	V3f P=_ray.m_pos + t*_ray.m_dir;
-	//	V3f C;
+		V3f P=_ray.m_pos + t*_ray.m_dir;
+		V3f C;
 
-	//	V3f edge0 = m_V1 - m_V0;
-	//	V3f VP0 = P - m_V0;
-	//	C=edge0.cross(VP0);
-	//	if(N.dot(C)<0){
-	//		//cout<<"on the right of edge0"<<endl;
-	//		return false; //P is on the right side
-	//	}
+		V3f edge0 = m_V1 - m_V0;
+		V3f VP0 = P - m_V0;
+		C=edge0.cross(VP0);
+		if(N.dot(C)<0){
+			//cout<<"on the right of edge0"<<endl;
+			return false; //P is on the right side
+		}
 
-	//	V3f edge1= m_V2 - m_V1;
-	//	V3f VP1 = P - m_V1;
-	//	C=edge1.cross(VP1);
-	//	if(N.dot(C)<0){
-	//		//cout<<"on the right of edge1"<<endl;
-	//		return false; //P is on the right side
-	//	}
+		V3f edge1= m_V2 - m_V1;
+		V3f VP1 = P - m_V1;
+		C=edge1.cross(VP1);
+		if(N.dot(C)<0){
+			//cout<<"on the right of edge1"<<endl;
+			return false; //P is on the right side
+		}
 
-	//	V3f edge2= m_V0 - m_V2;
-	//	V3f VP2 = P - m_V2;
-	//	C=edge2.cross(VP2);
-	//	if(N.dot(C)<0){
-	//		//cout<<"on the right of edge2"<<endl;
-	//		return false; //P is on the right side
-	//	}
+		V3f edge2= m_V0 - m_V2;
+		V3f VP2 = P - m_V2;
+		C=edge2.cross(VP2);
+		if(N.dot(C)<0){
+			//cout<<"on the right of edge2"<<endl;
+			return false; //P is on the right side
+		}
 
-	//	//*_thit = t;
-	//	//_local->m_pos = _ray.Ray_t(t);
-	//	//_local->m_n = m_V0.cross(m_V1);
-	//	//_local->m_n = _local->m_n / _local->m_n.norm();
-	//	return true; 
+		//*_thit = t;
+		//_local->m_pos = _ray.Ray_t(t);
+		//_local->m_n = m_V0.cross(m_V1);
+		//_local->m_n = _local->m_n / _local->m_n.norm();
+		return true; 
+	}
 	//	//V3f E1 = m_V0 - m_V1; 
 	//	//V3f E2 = m_V0 - m_V2; 
 	//	//V3f S = m_V0 - _ray.m_pos;
@@ -487,6 +488,13 @@ public:
 //BRDF and Material
 //***************************************************
 class CBRDF{
+public: 
+	CBRDF() {
+		ka = CColor(0.0f, 0.0f, 0.0f);
+		kd = CColor(0.0f, 0.0f, 0.0f);
+		ks = CColor(0.0f, 0.0f, 0.0f);
+		p = 0.0f; 
+	}
 public:
 	CColor ka, kd, ks;
 	CColor kr;
@@ -498,7 +506,7 @@ public:
 //	texture mapping, this need to be modified.
 class CMaterial {
 public: 
-	CMaterial(CBRDF& _brdf) {
+	CMaterial(CBRDF _brdf) {
 		m_constantBRDF = _brdf; 
 	}
 	CMaterial() {
@@ -914,8 +922,8 @@ private:
 	CColor shading(CLocalGeo& _local, CBRDF& _brdf, CRay& _ray, V3f& _v, CColor& _rayColor) {
 		CColor c_all(0.0f, 0.0f, 0.0f);
 
-		CColor c_ambient = renderAmbientTerm(_ray, _rayColor, _brdf.ka); 
-		c_all = c_all.Add(c_ambient);
+	/*	CColor c_ambient = renderAmbientTerm(_ray, _rayColor, _brdf.ka); 
+		c_all = c_all.Add(c_ambient);*/
 
 		CColor c_diffuse = renderDiffuseTerm(_ray, _rayColor, _brdf.kd, _local.m_n);
 		c_all = c_all.Add(c_diffuse);
@@ -942,13 +950,13 @@ public:
 		m_lights = _lights;
 	}
 
-	void trace(CRay& ray, int depth, CColor* color) {
+	bool trace(CRay& ray, int depth, CColor* color, CBRDF& brdf) {
 		if (depth > NUM_DEPTH) {
 			// Make the color black and return
 			color->m_rgb[0] = 0.0; 
 			color->m_rgb[1] = 0.0; 
 			color->m_rgb[2] = 0.0; 
-			return; 
+			return false; 
 		}
 
 		float thit; 
@@ -957,10 +965,10 @@ public:
 			color->m_rgb[0] = 0.0; 
 			color->m_rgb[1] = 0.0; 
 			color->m_rgb[2] = 0.0; 
-			return; 
+			return false;
 		}
 
-		CBRDF brdf; 
+		//CBRDF brdf; 
 		in.m_prim->getBRDF(in.m_localGeo, &brdf);
 
 		FOR_u (i, m_lights.size()) {
@@ -970,7 +978,7 @@ public:
 			//cout << in.m_localGeo.m_n << endl; 
 			m_lights[i]->generateLightRay(in.m_localGeo, &lray, &lcolor);
 			//lray.Print();
-			if (!m_scene->intersectP(lray)) { //If not, do shading calculation for this light source
+			if (true || !m_scene->intersectP(lray)) { //If not, do shading calculation for this light source
 				// bug
 				//shading(CLocalGeo& _local, CBRDF& _brdf, CRay& _ray, V3f& _v, CColor& _rayColor) {
 				CColor c = shading(in.m_localGeo, brdf, lray, ray.m_dir, lcolor);
@@ -985,14 +993,25 @@ public:
 			CRay reflectRay = createReflectRay(in.m_localGeo, ray);
 			//Make a recursive call to trace the reflected ray
 			CColor tempColor; 
-			trace(reflectRay, depth+1, &tempColor);
+			CBRDF tempBRDF; 
+			trace(reflectRay, depth+1, &tempColor,tempBRDF);
 			color->m_rgb[0] += tempColor.m_rgb[0] * brdf.kr.m_rgb[0];
 			color->m_rgb[1] += tempColor.m_rgb[1] * brdf.kr.m_rgb[1];
 			color->m_rgb[2] += tempColor.m_rgb[2] * brdf.kr.m_rgb[2];
 		}
-
+		return true; 
 	}
 };
+
+// global variables
+vector<CLight*> g_lights; 
+CPrimitive* g_scene; 
+int m_width; 
+int m_height; 
+string g_fname; 
+
+
+
 //*************************************
 //Camera (eye and screen and ray)
 //******************************************
@@ -1053,7 +1072,7 @@ public:
 	}
 
 	void ColorPixel(int i, int j, CColor color){
-		float mag = 255.0f; 
+		float mag = 1.0f; 
 		//color.Print(); 
 		m_pixel[i*m_w+j].m_color.m_rgb[0]=color.m_rgb[0]*mag;
 		m_pixel[i*m_w+j].m_color.m_rgb[1]=color.m_rgb[1]*mag;
@@ -1165,9 +1184,11 @@ public:
 						//CRay ray(pos, dir, dir.norm(), INF);
 						CRay ray(pos, dir, EPS, INF);
 						CColor ray_color;
-
-						m_rayTracer->trace(ray, depth, &ray_color);  //check ???? if ray_tracer behave right???
+						CBRDF brdf; 
+						bool isObj = m_rayTracer->trace(ray, depth, &ray_color, brdf);  //check ???? if ray_tracer behave right???
 						temp = temp.Add(ray_color);		///completed cumulated oversampling
+						if (isObj) 
+							temp = temp.Add(brdf.ka);
 					}
 					
 					//temp.Print(); 
@@ -1204,10 +1225,10 @@ public:
 		img.fill(0);
 	/*	m_pixel[200].m_color.m_rgb[0] = 1;
 		m_pixel[200].m_color.m_rgb[1] = 1;
-	    m_pixel[200].m_color.m_rgb[2] = 1;*/
-		cimg_forXYC(img, x, y, c) {img(x,m_h-y-1,c)=(unsigned char) m_pixel[x*m_w+y].m_color.m_rgb[c];}
+	    m_pixel[200].m_color.m_rgb[2] = 1;*/ 
+		cimg_forXYC(img, x, y, c) {img(x,y,c)=(unsigned char) m_pixel[x*m_w+y].m_color.m_rgb[c];}
 		//img.normalize(0,255);
-		//img.save("Scene.bmp");
+		img.save(g_fname.c_str());
 		img.display("RayTracer");
 		return true;
 	}
@@ -1234,83 +1255,375 @@ public:
 	CRayTracer* m_rayTracer; // = new CRayTracer(); 
 };
 
-CPrimitive* InitScene() { 
-	vector<CPrimitive*> primList; 
-	CBRDF brdf; 
+//CPrimitive* InitScene() { 
+//	vector<CPrimitive*> primList; 
+//	CBRDF brdf; 
+//
+//	brdf.ka = CColor(1.0f, 1.0f, 1.0f);   // ambient 
+//	brdf.kd = CColor(0.0f, 0.0f, 0.0f);   // diffuse
+//	brdf.ks = CColor(0.0f, 0.0f, 0.0f);   // specular
+//	//brdf.ks = CColor(0.2f, 0.2f, 0.2f);   // specular
+//	brdf.kr = CColor(0.0f, 0.0f, 0.0f);   // reflection
+//	brdf.p  = 16.0f;         
+//	//CMaterial* mat = ;
+//	CTransformation T; 
+//	CGeometricPrimitive* prim1 = new CGeometricPrimitive(); 
+//	prim1->m_objToWorld = T; 
+//	prim1->m_worldToObj = T; 
+//	prim1->m_mat = new CMaterial(brdf); 
+//	prim1->m_shape = new CSphere(V3f(0.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
+//	primList.push_back(prim1);
+//	//CGeometricPrimitive* prim2 = new CGeometricPrimitive(); 
+//	//prim2->m_objToWorld = T; prim2->m_worldToObj = T; 
+//	//brdf.kd =  CColor(0.0f, 1.0f, 0.0f);   // diffuse
+//	//prim2->m_mat = new CMaterial(brdf); 
+//	//prim2->m_shape = new CSphere(V3f(5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -10.0f), V3f(15.0, 0.0, -10.0f), V3f(0.0, 15.0f, -10.0f));
+//	//primList.push_back(prim2);
+//
+//	CAggregatePrimitive* scene = new CAggregatePrimitive(primList);
+//	//scene->m_objToWorld = CTransformation();
+//	//scene->m_worldToObj = CTransformation();
+//	              // specular 
+//	//scene->m_mat = new CMaterial(brdf);
+//	//scene->m_shape = new CSphere(V3f(0.0f, 0.0f, -5.0f), 5.0f);
+//
+//	//scene->m_shape = new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(15.0, 0.0, -0.0f), V3f(0.0, 15.0f, -5.0f));
+//	return (CPrimitive*)scene; 	
+//}
 
-	brdf.ka = CColor(0.0f, 0.0f, 0.0f);   // ambient 
-	brdf.kd = CColor(1.0f, 0.0f, 0.0f);   // diffuse
-	brdf.ks = CColor(0.0f, 0.0f, 0.0f);   // specular
-	//brdf.ks = CColor(0.2f, 0.2f, 0.2f);   // specular
-	brdf.kr = CColor(1.0f, 1.0f, 1.0f);   // reflection
-	brdf.p  = 16.0f;         
-	//CMaterial* mat = ;
-	CTransformation T; 
-	CGeometricPrimitive* prim1 = new CGeometricPrimitive(); 
-	prim1->m_objToWorld = T; 
-	prim1->m_worldToObj = T; 
-	prim1->m_mat = new CMaterial(brdf); 
-	prim1->m_shape = new CSphere(V3f(-5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
-	primList.push_back(prim1);
-	CGeometricPrimitive* prim2 = new CGeometricPrimitive(); 
-	prim2->m_objToWorld = T; prim2->m_worldToObj = T; 
-	brdf.kd =  CColor(0.0f, 1.0f, 0.0f);   // diffuse
-	prim2->m_mat = new CMaterial(brdf); 
-	prim2->m_shape = new CSphere(V3f(5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -10.0f), V3f(15.0, 0.0, -10.0f), V3f(0.0, 15.0f, -10.0f));
-	primList.push_back(prim2);
 
-	CAggregatePrimitive* scene = new CAggregatePrimitive(primList);
-	//scene->m_objToWorld = CTransformation();
-	//scene->m_worldToObj = CTransformation();
-	              // specular 
-	//scene->m_mat = new CMaterial(brdf);
-	//scene->m_shape = new CSphere(V3f(0.0f, 0.0f, -5.0f), 5.0f);
-
-	//scene->m_shape = new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(15.0, 0.0, -0.0f), V3f(0.0, 15.0f, -5.0f));
-	return (CPrimitive*)scene; 	
-}
+//vector<CLight*> InitLights() {
+//	vector<CLight*> lights; 
+//	CLight* light1 = new CLight(V3f(0.0f, 100.0f, 0.0f), CColor(1.0f, 1.0f, 1.0f), CLight::Point);
+//	lights.push_back(light1);
+//	return lights; 
+//}
 
 
-void ParseObject() {
 
-}
 
-vector<CLight*> InitLights() {
-	vector<CLight*> lights; 
-	CLight* light1 = new CLight(V3f(0.0f, 0.0f, 50.0f), CColor(1.0f, 1.0f, 1.0f), CLight::Point);
-	lights.push_back(light1);
-	return lights; 
+void loadScene(string file) {
+  //store variables and set stuff at the end
+  g_lights.clear(); 
+  vector<CPrimitive*> prims; 
+  vector<V3f> vertices; 
+  vertices.clear(); 
+  CBRDF brdf; 
+  CTransformation M; 
+  g_fname = "output.bmp";
+
+  std::ifstream inpfile(file.c_str());
+  if(!inpfile.is_open()) {
+    std::cout << "Unable to open file" << std::endl;
+  } else {
+    std::string line;
+    //MatrixStack mst;
+
+    while(inpfile.good()) {
+      std::vector<std::string> splitline;
+      std::string buf;
+	   
+      std::getline(inpfile,line);
+      std::stringstream ss(line);
+
+      while (ss >> buf) {
+        splitline.push_back(buf);
+      }
+      //Ignore blank lines
+      if(splitline.size() == 0) {
+        continue;
+      }
+
+      //Ignore comments
+      if(splitline[0][0] == '#') {
+        continue;
+      }
+
+      //Valid commands:
+      //size width height
+      //  must be first command of file, controls image size
+      else if(!splitline[0].compare("size")) {
+        m_width = atoi(splitline[1].c_str());
+        m_height = atoi(splitline[2].c_str());
+      }
+      //maxdepth depth
+      //  max # of bounces for ray (default 5)
+      else if(!splitline[0].compare("maxdepth")) {
+        // maxdepth: atoi(splitline[1].c_str())
+      }
+      //output filename
+      //  output file to write image to 
+      else if(!splitline[0].compare("output")) {
+        g_fname = splitline[1];
+      }
+
+      //camera lookfromx lookfromy lookfromz lookatx lookaty lookatz upx upy upz fov
+      //  specifies the camera in the standard way, as in homework 2.
+      else if(!splitline[0].compare("camera")) {
+        // lookfrom:
+        //    atof(splitline[1].c_str())
+        //    atof(splitline[2].c_str())
+        //    atof(splitline[3].c_str())
+        // lookat:
+        //    atof(splitline[4].c_str())
+        //    atof(splitline[5].c_str())
+        //    atof(splitline[6].c_str())
+        // up:
+        //    atof(splitline[7].c_str())
+        //    atof(splitline[8].c_str())
+        //    atof(splitline[9].c_str())
+        // fov: atof(splitline[10].c_str());
+      }
+
+      //sphere x y z radius
+      //  Deﬁnes a sphere with a given position and radius.
+      else if(!splitline[0].compare("sphere")) {
+		 CGeometricPrimitive* sphere = new CGeometricPrimitive(); 
+		 sphere->m_worldToObj = M; 
+		 sphere->m_objToWorld = M; // BUG
+         float x = (float)atof(splitline[1].c_str());
+         float y = (float)atof(splitline[2].c_str());
+         float z = (float)atof(splitline[3].c_str());
+         float r = (float)atof(splitline[4].c_str());
+		 sphere->m_mat = new CMaterial(brdf);
+		 sphere->m_shape = new CSphere(V3f(x, y, z-5), r);
+		 prims.push_back(sphere);
+        // Create new sphere:
+        //   Store 4 numbers
+        //   Store current property values
+        //   Store current top of matrix stack
+      }
+      //maxverts number
+      //  Deﬁnes a maximum number of vertices for later triangle speciﬁcations. 
+      //  It must be set before vertices are deﬁned.
+      else if(!splitline[0].compare("maxverts")) {
+        // Care if you want
+        // Here, either declare array size
+        // Or you can just use a STL vector, in which case you can ignore this
+      }
+      //maxvertnorms number
+      //  Deﬁnes a maximum number of vertices with normals for later speciﬁcations.
+      //  It must be set before vertices with normals are deﬁned.
+      else if(!splitline[0].compare("maxvertnorms")) {
+        // Care if you want
+      }
+      //vertex x y z
+      //  Deﬁnes a vertex at the given location.
+      //  The vertex is put into a pile, starting to be numbered at 0.
+      else if(!splitline[0].compare("vertex")) {
+
+        float x = (float)atof(splitline[1].c_str());
+        float y = (float)atof(splitline[2].c_str());
+        float z = (float)atof(splitline[3].c_str());
+		vertices.push_back(V3f(x, y, z-3));
+
+        // Create a new vertex with these 3 values, store in some array
+      }
+      //vertexnormal x y z nx ny nz
+      //  Similar to the above, but deﬁne a surface normal with each vertex.
+      //  The vertex and vertexnormal set of vertices are completely independent
+      //  (as are maxverts and maxvertnorms).
+      else if(!splitline[0].compare("vertexnormal")) {
+        // x: atof(splitline[1].c_str()),
+        // y: atof(splitline[2].c_str()),
+        // z: atof(splitline[3].c_str()));
+        // nx: atof(splitline[4].c_str()),
+        // ny: atof(splitline[5].c_str()),
+        // nz: atof(splitline[6].c_str()));
+        // Create a new vertex+normal with these 6 values, store in some array
+      }
+      //tri v1 v2 v3
+      //  Create a triangle out of the vertices involved (which have previously been speciﬁed with
+      //  the vertex command). The vertices are assumed to be speciﬁed in counter-clockwise order. Your code
+      //  should internally compute a face normal for this triangle.
+      else if(!splitline[0].compare("tri")) {
+        int i = (int)atof(splitline[1].c_str());
+        int j = (int)atof(splitline[2].c_str());
+        int k = (int)atof(splitline[3].c_str());
+		CGeometricPrimitive* tri = new CGeometricPrimitive(); 
+		tri->m_worldToObj = M; 
+		tri->m_objToWorld = M; // BUG
+
+		tri->m_mat = new CMaterial(brdf);
+		tri->m_shape = new CTriangle(vertices[i], vertices[j], vertices[k]);
+		prims.push_back(tri);
+        // Create new triangle:
+        //   Store pointer to array of vertices
+        //   Store 3 integers to index into array
+        //   Store current property values
+        //   Store current top of matrix stack
+      }
+      //trinormal v1 v2 v3
+      //  Same as above but for vertices speciﬁed with normals.
+      //  In this case, each vertex has an associated normal, 
+      //  and when doing shading, you should interpolate the normals 
+      //  for intermediate points on the triangle.
+      else if(!splitline[0].compare("trinormal")) {
+        // v1: atof(splitline[1].c_str())
+        // v2: atof(splitline[2].c_str())
+        // v3: atof(splitline[3].c_str())
+        // Create new triangle:
+        //   Store pointer to array of vertices (Different array than above)
+        //   Store 3 integers to index into array
+        //   Store current property values
+        //   Store current top of matrix stack
+      }
+
+      //translate x y z
+      //  A translation 3-vector
+      else if(!splitline[0].compare("translate")) { //TO-DO
+        float x = atof(splitline[1].c_str()); 
+        float y = atof(splitline[2].c_str());
+        float z = atof(splitline[3].c_str());
+		
+        // Update top of matrix stack
+      }
+      //rotate x y z angle
+      //  Rotate by angle (in degrees) about the given axis as in OpenGL.
+      else if(!splitline[0].compare("rotate")) { //TO-DO 
+        float x = (float)atof(splitline[1].c_str());
+        float y = (float)atof(splitline[2].c_str());
+        float z = (float)atof(splitline[3].c_str());
+        float angle = (float)atof(splitline[4].c_str());
+        // Update top of matrix stack
+      }
+      //scale x y z
+      //  Scale by the corresponding amount in each axis (a non-uniform scaling).
+      else if(!splitline[0].compare("scale")) {
+        float x = (float)atof(splitline[1].c_str());
+        float y = (float)atof(splitline[2].c_str());
+        float z = (float)atof(splitline[3].c_str());
+        // Update top of matrix stack
+      }
+      //pushTransform
+      //  Push the current modeling transform on the stack as in OpenGL. 
+      //  You might want to do pushTransform immediately after setting 
+      //   the camera to preserve the “identity” transformation.
+      else if(!splitline[0].compare("pushTransform")) {
+        //mst.push();
+      }
+      //popTransform
+      //  Pop the current transform from the stack as in OpenGL. 
+      //  The sequence of popTransform and pushTransform can be used if 
+      //  desired before every primitive to reset the transformation 
+      //  (assuming the initial camera transformation is on the stack as 
+      //  discussed above).
+      else if(!splitline[0].compare("popTransform")) {
+        //mst.pop();
+      }
+
+      //directional x y z r g b
+      //  The direction to the light source, and the color, as in OpenGL.
+      else if(!splitline[0].compare("directional")) {
+        float x = (float)atof(splitline[1].c_str()); 
+        float y = (float)atof(splitline[2].c_str());
+        float z = (float)atof(splitline[3].c_str());
+        float r = (float)atof(splitline[4].c_str());
+        float g = (float)atof(splitline[5].c_str());
+        float b = (float)atof(splitline[6].c_str());
+		CLight* light = new CLight(V3f(x, y, z), CColor(r, g, b), CLight::Directional);
+		g_lights.push_back(light);
+        // add light to scene...
+      }
+      //point x y z r g b
+      //  The location of a point source and the color, as in OpenGL.
+      else if(!splitline[0].compare("point")) {
+		  float x = (float)atof(splitline[1].c_str()); 
+		  float y = (float)atof(splitline[2].c_str());
+		  float z = (float)atof(splitline[3].c_str());
+		  float r = (float)atof(splitline[4].c_str());
+		  float g = (float)atof(splitline[5].c_str());
+		  float b = (float)atof(splitline[6].c_str());
+		  CLight* light = new CLight(V3f(x, y, z), CColor(r, g, b), CLight::Point);
+		  g_lights.push_back(light);
+        // add light to scene...
+      }
+      //attenuation const linear quadratic
+      //  Sets the constant, linear and quadratic attenuations 
+      //  (default 1,0,0) as in OpenGL.
+      else if(!splitline[0].compare("attenuation")) {
+        // const: atof(splitline[1].c_str())
+        // linear: atof(splitline[2].c_str())
+        // quadratic: atof(splitline[3].c_str())
+      }
+      //ambient r g b
+      //  The global ambient color to be added for each object 
+      //  (default is .2,.2,.2)
+      else if(!splitline[0].compare("ambient")) {
+        float r = (float)atof(splitline[1].c_str());
+        float g = (float)atof(splitline[2].c_str());
+        float b = (float)atof(splitline[3].c_str());
+		brdf.ka =CColor(r,g,b);
+      }
+
+      //diﬀuse r g b
+      //  speciﬁes the diﬀuse color of the surface.
+      else if(!splitline[0].compare("diffuse")) {
+		  float r = (float)atof(splitline[1].c_str());
+		  float g = (float)atof(splitline[2].c_str());
+		  float b = (float)atof(splitline[3].c_str());
+		  brdf.kd = CColor(r,g,b);
+        // Update current properties
+      }
+      //specular r g b 
+      //  speciﬁes the specular color of the surface.
+      else if(!splitline[0].compare("specular")) {
+		  float r = (float)atof(splitline[1].c_str());
+		  float g = (float)atof(splitline[2].c_str());
+		  float b = (float)atof(splitline[3].c_str());
+		  brdf.ks = CColor(r,g,b);
+        // Update current properties
+      }
+      //shininess s
+      //  speciﬁes the shininess of the surface.
+      else if(!splitline[0].compare("shininess")) {
+        float p = (float)atof(splitline[1].c_str());
+		brdf.p = p; 
+        // Update current properties
+      }
+      //emission r g b
+      //  gives the emissive color of the surface.
+      else if(!splitline[0].compare("emission")) {
+        // r: atof(splitline[1].c_str())
+        // g: atof(splitline[2].c_str())
+        // b: atof(splitline[3].c_str())
+        // Update current properties
+      } else {
+        std::cerr << "Unknown command: " << splitline[0] << std::endl;
+      }
+    }
+
+    inpfile.close();
+  }
+
+  vertices.clear(); 
+  g_scene = new CAggregatePrimitive(prims); 
 }
 
 int main(int argc, char *argv[]){
-	//CTimer* timer = new CTimer("ray tracing");
-	//Matrix3f m3;
-	//m3 << 1, 2, 3, 4, 5, 6, 7, 8, 9;
-	//Matrix4f m4=Matrix4f::Identity();
+	if (argc != 2) {
+		printf("invalid input\n");
+		exit(-1);
+	}
 
-	//Vector3f p_ray(0.0f,0.0f,0.0f), d_ray(0.0f,0.0f,0.0f), p_point(1.9f, 1.9f, 0.0f);
-	//CRay ray(p_ray, d_ray, 1, 10);
-
+	loadScene(string(argv[1]));
 
 
-	//cout<< ray.m_ray_start<< "\n\n" << ray.m_ray_end
-	//	<<"\n\n"<<p_point<<"\n\n"
-	//	<<ray.hasPoint(p_point, .1f)<<endl;
-
-
-	Vector3f eye(0,0,5);
-	int w = 1024; 
-	int h = w;
+	Vector3f eye(0,0,10);
+	//int w = 1024; 
+	//int h = w;
 	Vector3f LL(-10, -10, 0), UL(-10,10, 0),
 		LR(10, -10, 0), UR(10, 10, 0);
-	int over_sample_ratio=1;
+	int over_sample_ratio = 1;
 	CColor pixel(1,0,0);
 
-	CCamera camera(eye, w, h, LL, UL, LR, UR);
+	CCamera camera(eye, m_width, m_height, LL, UL, LR, UR);
 	CRayTracer* rayTracer = new CRayTracer(); 
-	vector<CLight*> lights = InitLights(); 
-	CPrimitive* scene = InitScene(); 
-	rayTracer->Setup(scene, lights);
+	//vector<CLight*> lights = InitLights(); 
+	//CPrimitive* scene = InitScene(); 
+	 
+	
+	rayTracer->Setup(g_scene, g_lights);
 	camera.SetupRayTracer(rayTracer);
 	omp_set_num_threads(12);
 
@@ -1321,10 +1634,10 @@ int main(int argc, char *argv[]){
 
 	camera.Film();
 
-	FOR_u (i, lights.size())
-		DELETE_OBJECT(lights[i]);
+	FOR_u (i, g_lights.size())
+		DELETE_OBJECT(g_lights[i]);
 
-	DELETE_OBJECT(scene);
+	DELETE_OBJECT(g_scene);
 	DELETE_OBJECT(rayTracer);
 	return 0;
 
