@@ -23,8 +23,8 @@
 #include "Eigen/Eigen/Dense"
 #else
 #undef Success
-#include <Eigen/Core>
-#include <Eigen/Dense>
+#include "Eigen/Eigen/Core"
+#include "Eigen/Eigen/Dense"
 #endif //  _WIN32
 
 #ifdef  _WIN32
@@ -55,6 +55,8 @@ using namespace cimg_library;
 #define FOR_u(i, n) for (size_t i = 0; i < n; i++)                  // for loop 
 #define SQUARE(x) ((x)*(x))
 #define INF (float) 1e10
+#define PI (float) 3.1415926
+
 inline float sqr(float x) { return x*x; }
 typedef unsigned char uchar; 
 typedef Vector3f V3f; 
@@ -523,14 +525,187 @@ public:
 	CPrimitive* m_prim; 
 };
 
+class CMatrix
+{
+public:
+	CMatrix(){
+		m_translate<< 1, 0, 0, 0,
+					0, 1, 0, 0,
+					0, 0, 1, 0,
+					0, 0, 0, 1;
+
+		m_rotate = m_translate;
+		m_scale = m_translate;
+
+	}
+	// Matrix(Matrix4f _mat4){
+	// 	if(_mat4(15)!=0){
+	// 		_mat4/=_mat4(15);
+	// 	}
+	// 	else{
+	// 		cerr<<"matrix4f needs to be homogenious coordinate, mat[15] can't be 0";
+	// 		exit(-1);
+	// 	}
+
+	// 	FOR (i, 16){ m_matrix4(i)=_mat4(i); }
+	// 	m_matrix3<< m_matrix4(0), m_matrix4(1), m_matrix4(2),
+	// 				m_matrix4(4), m_matrix4(5), m_matrix4(6),
+	// 				m_matrix4(8), m_matrix4(9), m_matrix4(10);
+	// }
+
+	// Matrix(Matrix3f _mat3){
+	// 	// FOR(i, 16){ m_matrix3(i)=_mat3(i); }
+
+	// 	m_matrix4 << _mat3(0), _mat3(1), _mat3(2), 0.0f,
+	// 				_mat3(3), _mat3(4), _mat3(5), 0.0f,
+	// 				_mat3(6), _mat3(7), _mat3(8), 0.0f,
+	// 					0.0f,	0.0f, 		0.0f, 1.0f;
+	// }
+	// void sync_3to4(){
+	// 	m_matrix4 << m_matrix3(0), m_matrix3(1), m_matrix3(2), 0.0f,
+	// 				m_matrix3(3), m_matrix3(4), m_matrix3(5), 0.0f,
+	// 				m_matrix3(6), m_matrix3(7), m_matrix3(8), 0.0f,
+	// 					0.0f,	0.0f, 		0.0f, 1.0f;
+	// }
+
+	// void sync_4to3(){
+
+	// 	if(m_matrix4(15)!=0){
+	// 		m_matrix4 /= m_matrix4(15); 
+	// 		m_matrix3<< m_matrix4(0), m_matrix4(1), m_matrix4(2),
+	// 					m_matrix4(4), m_matrix4(5), m_matrix4(6),
+	// 					m_matrix4(8), m_matrix4(9), m_matrix4(10);
+	// 			}
+	// 	else{
+	// 		cerr<<"matrix4f needs to be homogenious coordinate, mat[15] can't be 0";
+	// 		exit(-1);
+	// 	}
+	// }
+
+	//around axis, and counter clockwise (radius)
+	void rotate_axis(Vector3f axis, float angle){
+		angle*=(PI/180);
+		axis/=axis.norm();
+		Matrix3f r_cross;
+		r_cross << 0, -axis(2), axis(1),
+					axis(2), 0, -axis(0),
+					-axis(1), axis(0), 0;
+
+		Matrix3f temp= r_cross*r_cross.transpose()+sin(angle)*r_cross-cos(angle)*r_cross*r_cross;
+		m_rotate<<temp(0), temp(1), temp(2), 0.0f,
+				temp(4), temp(5), temp(6), 0.0f,
+				temp(7), temp(8), temp(9), 0.0f,
+				0.0f, 0.0f, 0.0f, 1.0f;
+
+		// sync_3to4();
+	}
+
+
+	 // Matrix rotate_quat(){}
+	//translate by distance in its 3 coordiate values
+	void translate(Vector3f distance){
+		m_translate << 1.0f, 0.0f, 0.0f, distance(0),
+					0.0f, 1.0f, 0.0f, distance(1),
+					0.0f, 0.0f, 1.0f, distance(2),
+					0.0f, 0.0f, 0.0f, 1.0f;
+
+
+		// m_matrix4 = temp * m_matrix4;
+		// m_matrix4 = m_matrix4/m_matrix4(15);
+		//m_matrix4 = temp;
+		// sync_4to3();
+	}
+
+	//scale base on the x, y, z of vector 
+	void scale(Vector3f factor){
+		// Matrix3f temp;
+		m_scale << factor(0), 	0.0f	, 0.0f	, 0.0f,
+					0.0f, factor(1)	, 0.0f	,0.0f,
+					0.0f, 0.0f		, factor(2), 0.0f,
+					0.0f, 0.0f, 0.0f, 1;
+		// m_matrix3 = temp*m_matrix3;
+		// sync_3to4();
+	}
+
+	void inverse(){
+		m_rotate=m_rotate.inverse();
+		m_translate = m_translate.inverse();
+		m_translate = m_translate/m_scale(15);
+		m_scale = m_scale.inverse();
+	}
+
+
+public:
+	// Matrix4f m_matrix4;
+	// Matrix3f m_matrix3;
+
+	Matrix4f m_translate, m_rotate, m_scale;
+
+};
 
 class CTransformation {
+
 public: 
-	V3f Vector(V3f _v) {return _v; }
-	V3f Point(V3f _p) { return _p; }
-	V3f Normal(V3f _n) { return _n; }
-	CRay Ray(CRay _ray) { return _ray; }
-	CLocalGeo LocalGeo(CLocalGeo _localGeo) { return _localGeo; }
+	CTransformation()
+	{
+
+		CMatrix m_Trans;
+	}
+
+	CTransformation( CMatrix _Trans ){
+		m_Trans.m_rotate=_Trans.m_rotate;
+		m_Trans.m_translate=_Trans.m_translate;
+		m_Trans.m_scale=_Trans.m_scale;
+	}
+
+
+	V3f Dir(V3f _v) {
+		Vector4f _v4;
+		_v4 << _v(0), _v(1), _v(2), 0.0f;
+		_v4 = m_Trans.m_rotate*_v4;
+		_v << _v4(0), _v4(1), _v4(2);
+		return _v; 
+	}
+	V3f Point(V3f _p) { 
+		Vector4f _p4;
+		_p4 << _p(0), _p(1), _p(2), 1.0f;
+		_p4 = m_Trans.m_translate*m_Trans.m_rotate*m_Trans.m_scale*_p4;
+		_p4 = _p4 / _p4(3);
+		_p << _p4(0), _p4(1), _p4(2);
+		return _p; 
+	}
+
+	V3f Normal(V3f _n) { 
+		Vector4f _n4;
+		_n4 << _n(0), _n(1), _n(2), 0.0f;
+		_n4 = (m_Trans.m_rotate*m_Trans.m_scale).inverse().transpose()*_n4;
+		_n4 = _n4 / _n4(3);
+		_n << _n4(0), _n4(1), _n4(2);
+
+		return _n; 
+	}
+
+	CRay Ray(CRay _ray) { 
+		CRay n_ray;
+
+		n_ray.m_pos = Point(_ray.m_pos);
+		n_ray.m_dir = Dir(_ray.m_dir);
+
+		n_ray.m_ray_start=Point(_ray.m_ray_start);
+		n_ray.m_ray_end=Point(_ray.m_ray_end);
+
+		n_ray.m_t_min=(n_ray.m_ray_start-n_ray.m_pos).norm();
+		n_ray.m_t_max=(n_ray.m_ray_end-n_ray.m_pos).norm();
+
+		return n_ray; 
+	}
+	CLocalGeo LocalGeo(CLocalGeo _localGeo) { 
+		_localGeo.m_pos = Point(_localGeo.m_pos);
+		_localGeo.m_n=Normal(_localGeo.m_n);
+		return _localGeo; 
+	}
+public:
+	CMatrix m_Trans;
 };
 
 
