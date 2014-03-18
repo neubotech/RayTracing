@@ -1281,7 +1281,7 @@ CPrimitive* InitScene() {
 
 	prim1->m_worldToObj = CTransformation(M); 
 	prim1->m_mat = new CMaterial(brdf); 
-	prim1->m_shape = new CSphere(V3f(0.0f, 0.0f, 0.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
+	prim1->m_shape = new CSphere(V3f(10.0f, 0.0f, 0.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
 	primList.push_back(prim1);
 	// CGeometricPrimitive* prim2 = new CGeometricPrimitive(); 
 	// prim2->m_objToWorld = T; prim2->m_worldToObj = T; 
