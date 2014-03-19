@@ -772,7 +772,8 @@ bool g_cameraOld;
 V3f g_lookat; 
 V3f g_lookup;
 float g_fov; 
-
+string g_mapName; 
+CImg<unsigned char> g_map; 
 
 class CRayTracer {
 
@@ -987,59 +988,48 @@ public:
 	}
 
 	void Change(Vector3f _eye, float FOV_angle, Vector3f LookAt, Vector3f Up, int _w, int _h){
-			m_eye = _eye;
-			m_w = _w;
-			m_h = _h;
+		m_eye = _eye;
+		m_w = _w;
+		m_h = _h;
 
-						Vector3f Dir=LookAt-_eye;
-			Dir=Dir/Dir.norm();
+		Vector3f Dir=LookAt-_eye;
+		Dir=Dir/Dir.norm();
 
-			//screen center is at a unit vecter Dir away from eye (always)
-			m_center= _eye + Dir;
+		//screen center is at a unit vecter Dir away from eye (always)
+		m_center= _eye + Dir;
 
-			//up vectors of the screen, normalized
-			Up=Up/Up.norm();
+		//up vectors of the screen, normalized
+		Up=Up/Up.norm();
 
-			Vector3f Right=Dir.cross(Up);
-			Right=Right/Right.norm();
-			Vector3f Top = Right.cross(Dir);
-			Top=Top/Top.norm();
+		Vector3f Right=Dir.cross(Up);
+		Right=Right/Right.norm();
+		Vector3f Top = Right.cross(Dir);
+		Top=Top/Top.norm();
 
 
 
-			float asp_ratio=((float)_w)/_h;
+		float asp_ratio=((float)_w)/_h;
 
-			m_height=2 * tan(FOV_angle/(2*180)*PI);
+		m_height=2 * tan(FOV_angle/(2*180)*PI);
 
-			m_width = m_height*asp_ratio;
+		m_width = m_height*asp_ratio;
 
-			UR = m_center + m_width/2*Right + m_height/2*Top;
-			LR = m_center + m_width/2*Right - m_height/2*Top;
-			UL = m_center - m_width/2*Right + m_height/2*Top;
-			LL = m_center - m_width/2*Right - m_height/2*Top;
+		UR = m_center + m_width/2*Right + m_height/2*Top;
+		LR = m_center + m_width/2*Right - m_height/2*Top;
+		UL = m_center - m_width/2*Right + m_height/2*Top;
+		LL = m_center - m_width/2*Right - m_height/2*Top;
 
-			//make sure direction is right
-			//normal pointing toward eye
-			m_normal=(LL-LR).cross(LL-UL);
-			m_normal=m_normal/m_normal.norm();
+		//make sure direction is right
+		//normal pointing toward eye
+		m_normal=(LL-LR).cross(LL-UL);
+		m_normal=m_normal/m_normal.norm();
 
-			// m_sample=new Vector3f[m_w*m_h*m_over_sample_ratio*m_over_sample_ratio];
-			m_pixel=new Pixel[m_w*m_h];
+		// m_sample=new Vector3f[m_w*m_h*m_over_sample_ratio*m_over_sample_ratio];
+		m_pixel=new Pixel[m_w*m_h];
 	}
 
 	void ColorPixel(int i, int j, CColor color){
-		//float mag = 255.0f; 
-		//color.Print(); 
-		//m_pixel[i*m_w+j].m_color.m_rgb[0]=color.m_rgb[0]*mag;
-		//m_pixel[i*m_w+j].m_color.m_rgb[1]=color.m_rgb[1]*mag;
-		//m_pixel[i*m_w+j].m_color.m_rgb[2]=color.m_rgb[2]*mag;
 		m_pixel[i*m_w+j].m_color = color;
-	/*	if (m_pixel[i*m_w+j].m_color.m_rgb[0] > 0 ||
-			m_pixel[i*m_w+j].m_color.m_rgb[1] > 0|| 
-			m_pixel[i*m_w+j].m_color.m_rgb[2] > 0) {
-
-			printf("non-zero");
-		}*/
 	}
 
 private:
@@ -1128,7 +1118,7 @@ public:
 		float num_samples = (float) over_sample_ratio * over_sample_ratio; 
 		num_samples = 1.0f/num_samples;
 
-		//#pragma omp parallel for
+		#pragma omp parallel for
 		for(int i=0; i< m_h; i++) {
 			for(int j=0; j<m_w; j++){
 				if ((i != g_debugY || j != g_debugX) && (g_debugX >= 0 && g_debugY>=0)){
@@ -1213,55 +1203,10 @@ public:
 	CRayTracer* m_rayTracer; // = new CRayTracer(); 
 };
 
-//CPrimitive* InitScene() { 
-//	vector<CPrimitive*> primList; 
-//	CBRDF brdf; 
-//
-//	brdf.ka = CColor(0.0f, 0.0f, 0.0f);   // ambient 
-//	brdf.kd = CColor(1.0f, 0.0f, 0.0f);   // diffuse
-//	brdf.ks = CColor(0.0f, 0.0f, 0.0f);   // specular
-//	//brdf.ks = CColor(0.2f, 0.2f, 0.2f);   // specular
-//	brdf.kr = CColor(1.0f, 1.0f, 1.0f);   // reflection
-//	brdf.p  = 16.0f;         
-//	//CMaterial* mat = ;
-//	CTransformation T; 
-//	CGeometricPrimitive* prim1 = new CGeometricPrimitive(); 
-//	prim1->m_objToWorld = T; 
-//	prim1->m_worldToObj = T; 
-//	prim1->m_mat = new CMaterial(brdf); 
-//	prim1->m_shape = new CSphere(V3f(-5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
-//	primList.push_back(prim1);
-//	CGeometricPrimitive* prim2 = new CGeometricPrimitive(); 
-//	prim2->m_objToWorld = T; 
-//	prim2->m_worldToObj = T; 
-//	brdf.kd =  CColor(0.0f, 1.0f, 0.0f);   // diffuse
-//	prim2->m_mat = new CMaterial(brdf); 
-//	prim2->m_shape = new CSphere(V3f(5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -10.0f), V3f(15.0, 0.0, -10.0f), V3f(0.0, 15.0f, -10.0f));
-//	primList.push_back(prim2);
-//
-//	CAggregatePrimitive* scene = new CAggregatePrimitive(primList);
-//	//scene->m_objToWorld = CTransformation();
-//	//scene->m_worldToObj = CTransformation();
-//	              // specular 
-//	//scene->m_mat = new CMaterial(brdf);
-//	//scene->m_shape = new CSphere(V3f(0.0f, 0.0f, -5.0f), 5.0f);
-//
-//	//scene->m_shape = new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(15.0, 0.0, -0.0f), V3f(0.0, 15.0f, -5.0f));
-//	return (CPrimitive*)scene; 	
-//}
-
-//vector<CLight*> InitLights() {
-//	vector<CLight*> lights; 
-//	CLight* light1 = new CLight(V3f(0.0f, 0.0f, 50.0f), CColor(1.0f, 1.0f, 1.0f), CLight::Point);
-//	lights.push_back(light1);
-//	return lights; 
-//}
-
-
-
 void loadScene(string file) {
   printf("parse scene (%s)\n", file.c_str());
   //store variables and set stuff at the end
+  g_map.clear(); 
   g_cameraOld = false; 
   int shapeId = 0; 
   g_lights.clear(); 
@@ -1320,7 +1265,9 @@ void loadScene(string file) {
       //  output file to write image to 
       else if(!splitline[0].compare("output")) {
         g_fname = splitline[1];
-      }
+      } else if(!splitline[0].compare("map")) {
+		  g_mapName = splitline[1];
+	  }
 	  else if(!splitline[0].compare("depth")) {
 		  g_max_depth = atoi(splitline[1].c_str());
 	  }
@@ -1620,7 +1567,12 @@ void loadScene(string file) {
 }
 
 
-
+void LoadMap() {
+	 if (!g_mapName.empty()) {
+		g_map = CImg<unsigned char> (g_mapName.c_str()); //  visu(1536,768,1,3,0);
+		g_map.display(); 
+	 }
+}
 
 
 
@@ -1631,39 +1583,21 @@ int main(int argc, char *argv[]){
 	}
 
 	loadScene(string(argv[1]));
-	/*Vector3f eye(0,0,50);
-	int w = 500; 
-	int h = 500;
-	Vector3f LL(-10, -10, 0), UL(-10,10, 0),
-	 	LR(10, -10, 0), UR(10, 10, 0);*/
-	//int over_sample_ratio = 2;
-	// CColor pixel(1,0,0);
-
-	//float FOV_angle=90.0f;
-	//Vector3f UpX(1,0,0);
-	//Vector3f UpY(0,1,0);
-	//Vector3f LookAt(0, 0, 0); 
 
 	CCamera* camera = NULL; 
 	if (g_cameraOld)
 		camera = new CCamera(g_eye, g_width, g_height, g_LL, g_UL, g_LR, g_UR);
 	else
 		camera = new CCamera(g_eye, g_fov, g_lookat, g_lookup, g_width, g_height);
-	 //CCamera camera(eye, w, h, LL, UL, LR, UR);
-
-	//CCamera camera(eye, FOV_angle, LookAt, UpX, UpY, w, h);
-		
-
 
 	CRayTracer* rayTracer = new CRayTracer(); 
 	// setup
-	//g_lights = InitLights(); 
-	//g_scene = InitScene(); 
 	rayTracer->Setup(g_scene, g_lights);
 	camera->SetupRayTracer(rayTracer);
-	// omp_set_num_threads(12);
+	LoadMap();
 
-
+	omp_set_num_threads(12);
+	
 	camera->Sample(g_over_sample, CCamera::OverS);
 	//DELETE_OBJECT(timer);
 
