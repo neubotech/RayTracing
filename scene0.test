@@ -1,0 +1,33 @@
+size 512 512
+debug -1 -1
+depth 1
+sample 5
+
+
+camera 2 2 2 0 0 0 0 1 0 30
+
+
+reflect 0.5 0.5 0.5
+point 10 10 10 1 1 1
+
+diffuse 0 1 0
+sphere 0 0 0 .3
+
+diffuse 0 0 1
+sphere 0.5 0.1 0.5 0.1
+
+diffuse 1 0 0
+vertex -0.5 -0.5 0 
+vertex -0.5 0.5 0
+vertex 0.5 -0.5 0
+vertex 0.5 0.5 0
+
+
+
+tri 2 1 0
+tri 1 2 3
+
+
+
+
+
