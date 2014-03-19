@@ -936,6 +936,8 @@ public:
 
 			Vector3f Right=Dir.cross(Up);
 			Right=Right/Right.norm();
+			Vector3f Top = Right.cross(Dir);
+			Top=Top/Top.norm();
 
 
 
@@ -945,10 +947,10 @@ public:
 
 			m_width = m_height*asp_ratio;
 
-			UR = m_center + m_width/2*Right + m_height/2*Up;
-			LR = m_center + m_width/2*Right - m_height/2*Up;
-			UL = m_center - m_width/2*Right + m_height/2*Up;
-			LL = m_center - m_width/2*Right - m_height/2*Up;
+			UR = m_center + m_width/2*Right + m_height/2*Top;
+			LR = m_center + m_width/2*Right - m_height/2*Top;
+			UL = m_center - m_width/2*Right + m_height/2*Top;
+			LL = m_center - m_width/2*Right - m_height/2*Top;
 
 			//make sure direction is right
 			//normal pointing toward eye
@@ -958,7 +960,11 @@ public:
 			// m_sample=new Vector3f[m_w*m_h*m_over_sample_ratio*m_over_sample_ratio];
 			m_pixel=new Pixel[m_w*m_h];
 
-			// cout << LL << LR << UL << UR << m_center << Dir << endl;
+			// cout << LL <<endl<< LR <<endl
+			// << UL <<endl<< UR <<endl
+			// << m_center << Dir << endl;
+
+			// cout << _eye << endl<<FOV_angle<<endl<< LookAt<<endl<<Up<< endl;
 
 	}
 
@@ -980,32 +986,37 @@ public:
 
 	}
 
-	void Change(Vector3f _eye, float FOV_angle, Vector3f LookAt, Vector3f UpX, Vector3f UpY, int _w, int _h){
+	void Change(Vector3f _eye, float FOV_angle, Vector3f LookAt, Vector3f Up, int _w, int _h){
 			m_eye = _eye;
 			m_w = _w;
 			m_h = _h;
 
-			Vector3f Dir=LookAt-_eye;
+						Vector3f Dir=LookAt-_eye;
 			Dir=Dir/Dir.norm();
 
 			//screen center is at a unit vecter Dir away from eye (always)
 			m_center= _eye + Dir;
 
 			//up vectors of the screen, normalized
-			UpX=UpX/UpX.norm();
-			UpY=UpY/UpY.norm();
+			Up=Up/Up.norm();
 
-			
+			Vector3f Right=Dir.cross(Up);
+			Right=Right/Right.norm();
+			Vector3f Top = Right.cross(Dir);
+			Top=Top/Top.norm();
+
+
+
 			float asp_ratio=((float)_w)/_h;
 
-			m_height=2 *tan(FOV_angle/(2*180*PI));
+			m_height=2 * tan(FOV_angle/(2*180)*PI);
 
 			m_width = m_height*asp_ratio;
 
-			UR = m_center + m_width/2*UpX + m_height/2*UpY;
-			LR = m_center + m_width/2*UpX - m_height/2*UpY;
-			UL = m_center - m_width/2*UpX + m_height/2*UpY;
-			LL = m_center - m_width/2*UpX - m_height/2*UpY;
+			UR = m_center + m_width/2*Right + m_height/2*Top;
+			LR = m_center + m_width/2*Right - m_height/2*Top;
+			UL = m_center - m_width/2*Right + m_height/2*Top;
+			LL = m_center - m_width/2*Right - m_height/2*Top;
 
 			//make sure direction is right
 			//normal pointing toward eye
@@ -1014,7 +1025,6 @@ public:
 
 			// m_sample=new Vector3f[m_w*m_h*m_over_sample_ratio*m_over_sample_ratio];
 			m_pixel=new Pixel[m_w*m_h];
-
 	}
 
 	void ColorPixel(int i, int j, CColor color){
