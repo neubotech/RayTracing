@@ -184,13 +184,18 @@ public:
 			float deltasqrt = sqrt(delta);
 			float t1 = (- b - deltasqrt) / a;
 			float t2 = (- b + deltasqrt) / a;
-			t = _ray.m_t_max + 1; 
-			if (t1 <= _ray.m_t_max && t1 >= _ray.m_t_min)
+			bool flag = false; 
+			t = _ray.m_t_max; 
+			if (t1 <= _ray.m_t_max && t1 >= _ray.m_t_min) {
+				flag = true; 
 				t = min(t, t1);
+			}
 
-			if (t2 <= _ray.m_t_max && t2 >= _ray.m_t_min)
+			if (t2 <= _ray.m_t_max && t2 >= _ray.m_t_min) {
+				flag = true; 
 				t = min(t, t2);
-			if (t > _ray.m_t_max)   // both out of range
+			}
+			if (!flag)   // both out of range
 				return false; 
 		}
 
@@ -831,16 +836,18 @@ public:
 	}
 
 	void trace(CRay& ray, int depth, CColor* color) {
+		//printf("trace depth (%d)\n", depth);
+		*color = CColor(0.0f, 0.0f, 0.0f);
 		if (depth > g_max_depth) {
 			// Make the color black and return
-			*color = CColor(0.0f, 0.0f, 0.0f);
+			//*color = CColor(0.0f, 0.0f, 0.0f);
 			return; 
 		}
 
 		float thit; 
 		CIntersection in;
 		if (!m_scene->intersect(ray, &thit, &in)) {
-			*color = CColor(0.0f, 0.0f, 0.0f);
+			//*color = CColor(0.0f, 0.0f, 0.0f);
 			return; 
 		}
 
@@ -1227,6 +1234,7 @@ vector<CLight*> InitLights() {
 
 
 void loadScene(string file) {
+  printf("parse scene (%s)\n", file.c_str());
   //store variables and set stuff at the end
   g_cameraOld = false; 
   int shapeId = 0; 
@@ -1297,6 +1305,7 @@ void loadScene(string file) {
 		  g_debugX = atoi(splitline[1].c_str());  // 25
 		  g_debugY = atoi(splitline[2].c_str());  // 102
 		  g_debugY = g_height - g_debugY - 1;
+		  printf("set debug pixel (%d, %d)\n", g_debugX, g_debugY);
 	  }
       //camera lookfromx lookfromy lookfromz lookatx lookaty lookatz upx upy upz fov
       //  specifies the camera in the standard way, as in homework 2.
