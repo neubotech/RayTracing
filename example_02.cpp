@@ -155,16 +155,24 @@ class CShape {
 public:
 	virtual bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local, int& _id) = 0; 
 	virtual bool intersectP(CRay& _ray) = 0; 
+	virtual void Print() = 0; 
 public: 
 	int m_id; 
 };
 
 class CSphere : public CShape {
 public: 
-	CSphere(V3f _c, float _r) {
+	CSphere(V3f _c, float _r, int _id) {
 		m_c = _c;  m_r = _r; m_r2 = m_r * m_r; 
+		m_id = _id;
 	}
 
+	void Print() {
+		printf("Id = %d, Sphere\n", m_id);
+		cout << "center: "  << m_c.transpose()  << endl; 
+		cout << "radius: " << m_r << endl; 
+		cout << endl; 
+	}
 	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local, int& _id)  {
 		if (_ray.m_id == m_id)
 			return false; 
@@ -256,10 +264,17 @@ private:
 	}
 
 public: 
-	CTriangle(V3f _V0, V3f _V1, V3f _V2) {
-		m_V0 = _V0; m_V1 = _V1; m_V2 = _V2; 
+	CTriangle(V3f _V0, V3f _V1, V3f _V2, int _id) {
+		m_V0 = _V0; m_V1 = _V1; m_V2 = _V2; m_id = _id; 
 	}
 
+	void Print() {
+		printf("Id = %d, Triangle\n", m_id);
+		cout << "V0: "  << m_V0.transpose() << endl; 
+		cout << "V1: " << m_V1.transpose()  << endl; 
+		cout << "V2: " << m_V2.transpose()  << endl; 
+		cout << endl; 
+	}
 	bool intersectP(CRay& _ray) {
 		if (_ray.m_id == m_id)
 			return false; 
@@ -804,9 +819,9 @@ private:
 
 	CColor shading(CLocalGeo& _local, CBRDF& _brdf, CRay& _ray, V3f& _v, CColor& _rayColor) {
 		CColor c_all(0.0f, 0.0f, 0.0f);
-
-		CColor c_ambient = renderAmbientTerm(_ray, _rayColor, _brdf.ka); 
-		c_all = c_all.Add(c_ambient);
+		// don't compute ambient in shading
+	/*	CColor c_ambient = renderAmbientTerm(_ray, _rayColor, _brdf.ka); 
+		c_all = c_all.Add(c_ambient);*/
 
 		CColor c_diffuse = renderDiffuseTerm(_ray, _rayColor, _brdf.kd, _local.m_n);
 		c_all = c_all.Add(c_diffuse);
@@ -835,25 +850,25 @@ public:
 		m_lights = _lights;
 	}
 
-	void trace(CRay& ray, int depth, CColor* color) {
+	bool trace(CRay& ray, int depth, CColor* color, CColor& _ka) {
 		//printf("trace depth (%d)\n", depth);
 		*color = CColor(0.0f, 0.0f, 0.0f);
 		if (depth > g_max_depth) {
 			// Make the color black and return
 			//*color = CColor(0.0f, 0.0f, 0.0f);
-			return; 
+			return false; 
 		}
 
 		float thit; 
 		CIntersection in;
 		if (!m_scene->intersect(ray, &thit, &in)) {
 			//*color = CColor(0.0f, 0.0f, 0.0f);
-			return; 
+			return false;
 		}
 
 		CBRDF brdf; 
 		in.m_prim->getBRDF(in.m_localGeo, &brdf);
-
+		_ka = brdf.ka; 
 		FOR_u (i, m_lights.size()) {
 			CRay lray; 
 			CColor lcolor;
@@ -873,11 +888,11 @@ public:
 		if (!brdf.kr.IsBlack()) {
 			CRay reflectRay = createReflectRay(in.m_localGeo, ray, in.m_id);
 			//Make a recursive call to trace the reflected ray
-			CColor tempColor; 
-			trace(reflectRay, depth+1, &tempColor);
+			CColor tempColor, tempKa; 
+			trace(reflectRay, depth+1, &tempColor, tempKa);
 			*color = color->Add(tempColor.Multiply(brdf.kr));
 		}
-
+		return true; 
 	}
 };
 
@@ -1120,10 +1135,11 @@ public:
 						CRay ray(pos, dir, EPS, INF);
 						ray.m_id = -1;
 						CColor ray_color;
-
-						m_rayTracer->trace(ray, 0, &ray_color);  //check ???? if ray_tracer behave right???
+						CColor ka; 
+						bool isObj = m_rayTracer->trace(ray, 0, &ray_color, ka);  //check ???? if ray_tracer behave right???
 						temp = temp.Add(ray_color);		///completed cumulated oversampling
-
+						if (isObj)
+							temp = temp.Add(ka);
 					}
 
 					//temp.Print(); 
@@ -1160,7 +1176,7 @@ public:
 	    m_pixel[200].m_color.m_rgb[2] = 1;*/
 		cimg_forXYC(img, x, y, c) {img(x,m_h-y-1,c)=(unsigned char) m_pixel[x+y*m_w].m_color.m_rgb[c];}
 		//img.normalize(0,255);
-		//img.save("Scene.bmp");
+		img.save(g_fname.c_str());
 		img.display("RayTracer");
 		return true;
 	}
@@ -1187,49 +1203,49 @@ public:
 	CRayTracer* m_rayTracer; // = new CRayTracer(); 
 };
 
-CPrimitive* InitScene() { 
-	vector<CPrimitive*> primList; 
-	CBRDF brdf; 
+//CPrimitive* InitScene() { 
+//	vector<CPrimitive*> primList; 
+//	CBRDF brdf; 
+//
+//	brdf.ka = CColor(0.0f, 0.0f, 0.0f);   // ambient 
+//	brdf.kd = CColor(1.0f, 0.0f, 0.0f);   // diffuse
+//	brdf.ks = CColor(0.0f, 0.0f, 0.0f);   // specular
+//	//brdf.ks = CColor(0.2f, 0.2f, 0.2f);   // specular
+//	brdf.kr = CColor(1.0f, 1.0f, 1.0f);   // reflection
+//	brdf.p  = 16.0f;         
+//	//CMaterial* mat = ;
+//	CTransformation T; 
+//	CGeometricPrimitive* prim1 = new CGeometricPrimitive(); 
+//	prim1->m_objToWorld = T; 
+//	prim1->m_worldToObj = T; 
+//	prim1->m_mat = new CMaterial(brdf); 
+//	prim1->m_shape = new CSphere(V3f(-5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
+//	primList.push_back(prim1);
+//	CGeometricPrimitive* prim2 = new CGeometricPrimitive(); 
+//	prim2->m_objToWorld = T; 
+//	prim2->m_worldToObj = T; 
+//	brdf.kd =  CColor(0.0f, 1.0f, 0.0f);   // diffuse
+//	prim2->m_mat = new CMaterial(brdf); 
+//	prim2->m_shape = new CSphere(V3f(5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -10.0f), V3f(15.0, 0.0, -10.0f), V3f(0.0, 15.0f, -10.0f));
+//	primList.push_back(prim2);
+//
+//	CAggregatePrimitive* scene = new CAggregatePrimitive(primList);
+//	//scene->m_objToWorld = CTransformation();
+//	//scene->m_worldToObj = CTransformation();
+//	              // specular 
+//	//scene->m_mat = new CMaterial(brdf);
+//	//scene->m_shape = new CSphere(V3f(0.0f, 0.0f, -5.0f), 5.0f);
+//
+//	//scene->m_shape = new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(15.0, 0.0, -0.0f), V3f(0.0, 15.0f, -5.0f));
+//	return (CPrimitive*)scene; 	
+//}
 
-	brdf.ka = CColor(0.0f, 0.0f, 0.0f);   // ambient 
-	brdf.kd = CColor(1.0f, 0.0f, 0.0f);   // diffuse
-	brdf.ks = CColor(0.0f, 0.0f, 0.0f);   // specular
-	//brdf.ks = CColor(0.2f, 0.2f, 0.2f);   // specular
-	brdf.kr = CColor(1.0f, 1.0f, 1.0f);   // reflection
-	brdf.p  = 16.0f;         
-	//CMaterial* mat = ;
-	CTransformation T; 
-	CGeometricPrimitive* prim1 = new CGeometricPrimitive(); 
-	prim1->m_objToWorld = T; 
-	prim1->m_worldToObj = T; 
-	prim1->m_mat = new CMaterial(brdf); 
-	prim1->m_shape = new CSphere(V3f(-5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
-	primList.push_back(prim1);
-	CGeometricPrimitive* prim2 = new CGeometricPrimitive(); 
-	prim2->m_objToWorld = T; 
-	prim2->m_worldToObj = T; 
-	brdf.kd =  CColor(0.0f, 1.0f, 0.0f);   // diffuse
-	prim2->m_mat = new CMaterial(brdf); 
-	prim2->m_shape = new CSphere(V3f(5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -10.0f), V3f(15.0, 0.0, -10.0f), V3f(0.0, 15.0f, -10.0f));
-	primList.push_back(prim2);
-
-	CAggregatePrimitive* scene = new CAggregatePrimitive(primList);
-	//scene->m_objToWorld = CTransformation();
-	//scene->m_worldToObj = CTransformation();
-	              // specular 
-	//scene->m_mat = new CMaterial(brdf);
-	//scene->m_shape = new CSphere(V3f(0.0f, 0.0f, -5.0f), 5.0f);
-
-	//scene->m_shape = new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(15.0, 0.0, -0.0f), V3f(0.0, 15.0f, -5.0f));
-	return (CPrimitive*)scene; 	
-}
-
-vector<CLight*> InitLights() {
-	vector<CLight*> lights; 
-	CLight* light1 = new CLight(V3f(0.0f, 0.0f, 50.0f), CColor(1.0f, 1.0f, 1.0f), CLight::Point);
-	lights.push_back(light1);
-	return lights; 
-}
+//vector<CLight*> InitLights() {
+//	vector<CLight*> lights; 
+//	CLight* light1 = new CLight(V3f(0.0f, 0.0f, 50.0f), CColor(1.0f, 1.0f, 1.0f), CLight::Point);
+//	lights.push_back(light1);
+//	return lights; 
+//}
 
 
 
@@ -1245,8 +1261,8 @@ void loadScene(string file) {
   CBRDF brdf; 
   CTransformation M; 
   g_fname = "output.bmp";
-  g_over_sample = 1; 
-  g_max_depth = 1; 
+  g_over_sample = 2; 
+  g_max_depth = 3; 
   g_debugY = -1;
   g_debugY = -1; 
 
@@ -1367,8 +1383,9 @@ void loadScene(string file) {
          float z = (float)atof(splitline[3].c_str());
          float r = (float)atof(splitline[4].c_str());
 		 sphere->m_mat = new CMaterial(brdf);
-		 sphere->m_shape = new CSphere(V3f(x, y, z), r);
-		 sphere->m_shape->m_id = shapeId; 
+		 sphere->m_shape = new CSphere(V3f(x, y, z), r, shapeId);
+		 //sphere->m_shape->m_id = shapeId; 
+		 sphere->m_shape->Print();
 		 shapeId++;
 		 prims.push_back(sphere);
         // Create new sphere:
@@ -1431,8 +1448,9 @@ void loadScene(string file) {
 		tri->m_mat = new CMaterial(tmp);
 		//cout << i << " " << j << " " << k << endl; 
 		//cout << "ka: " << brdf.ka.m_rgb[0] << " " << brdf.ka.m_rgb[1] << " " << brdf.ka.m_rgb[2] << endl; 
-		tri->m_shape = new CTriangle(vertices[i], vertices[j], vertices[k]);
-		tri->m_shape->m_id = shapeId;
+		tri->m_shape = new CTriangle(vertices[i], vertices[j], vertices[k], shapeId);
+		tri->m_shape->Print(); 
+		//tri->m_shape->m_id = shapeId;
 		shapeId++;
 		prims.push_back(tri);
         // Create new triangle:
