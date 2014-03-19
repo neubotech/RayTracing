@@ -1,0 +1,20 @@
+size 200 200
+debug -1 -1
+depth 3
+sample 1
+
+camera_old 0 0 50 -10 10 -10 10
+
+
+ambient 0 0 0
+reflect 1.0 1.0 1.0
+point 0 0 50 1 1 1
+
+
+diffuse 1 0 0
+sphere -5 0 -10 5
+
+diffuse 0 1 0
+sphere 5 0 -10 5
+
+

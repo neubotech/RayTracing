@@ -41,9 +41,9 @@ using namespace cimg_library;
 //****************************************************
 // macros and inline functions
 //****************************************************
-#define EPS 1e-5f
-#define EPS_SELF 1e-6f
-#define NUM_DEPTH 2
+#define EPS 1e-10f
+//#define EPS_SELF 0
+//#define NUM_DEPTH 1
 //#define NUM_LIGHTS 4
 //#ifdef _WIN32
 //#define INF 1e10f
@@ -126,7 +126,7 @@ public:
 	Vector3f m_pos, m_dir;
 	Vector3f m_ray_start, m_ray_end;
 	float m_t_min, m_t_max;
-
+	int m_id; 
 	// float m_t;
 	// Vector3f m_ray;
 };
@@ -153,8 +153,10 @@ void TestShape() {
 
 class CShape {
 public:
-	virtual bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local) = 0; 
+	virtual bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local, int& _id) = 0; 
 	virtual bool intersectP(CRay& _ray) = 0; 
+public: 
+	int m_id; 
 };
 
 class CSphere : public CShape {
@@ -163,7 +165,9 @@ public:
 		m_c = _c;  m_r = _r; m_r2 = m_r * m_r; 
 	}
 
-	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
+	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local, int& _id)  {
+		if (_ray.m_id == m_id)
+			return false; 
 		float t; 
 		V3f oc = _ray.m_pos - m_c; 
 		float a = _ray.m_dir.dot(_ray.m_dir); // dir should be unit
@@ -192,6 +196,7 @@ public:
 
 		// pass t, compute CLocalGeo
 		*_thit = t; 
+		_id = m_id; 
 		_local->m_pos = _ray.Ray_t(t);
 		_local->m_n = _local->m_pos - m_c; 
 		_local->m_n = _local->m_n / _local->m_n.norm(); 
@@ -199,6 +204,8 @@ public:
 	} 
 
 	bool intersectP(CRay& _ray) {
+		if (_ray.m_id == m_id)
+			return false; 
 		V3f oc = _ray.m_pos - m_c; 
 		float a = _ray.m_dir.dot(_ray.m_dir); // dir should be unit
 		float b = _ray.m_dir.dot(oc);
@@ -249,6 +256,8 @@ public:
 	}
 
 	bool intersectP(CRay& _ray) {
+		if (_ray.m_id == m_id)
+			return false; 
 		V3f E1 = m_V0 - m_V1; 
 		V3f E2 = m_V0 - m_V2; 
 		V3f S = m_V0 - _ray.m_pos;
@@ -270,7 +279,9 @@ public:
 		return true; 
 	}
 
-	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local)  {
+	bool intersect(CRay& _ray, float* _thit, CLocalGeo* _local, int& _id)  {
+		if (_ray.m_id == m_id)
+			return false; 
 		V3f E1 = m_V0 - m_V1; 
 		V3f E2 = m_V0 - m_V2; 
 		V3f S = m_V0 - _ray.m_pos;
@@ -290,6 +301,7 @@ public:
 		if (gamma < -EPS || gamma - 1 > EPS || beta + gamma - 1 > EPS)
 		 	return false; 
 		*_thit = t;
+		_id = m_id; 
 		_local->m_pos = _ray.Ray_t(t);
 		_local->m_n = (m_V0-m_V1).cross(m_V0-m_V2);
 		_local->m_n = _local->m_n / _local->m_n.norm();
@@ -474,6 +486,18 @@ public:
 		return CColor(m_rgb[0]+_c.m_rgb[0], m_rgb[1]+_c.m_rgb[1], m_rgb[2]+_c.m_rgb[2]);
 	}
 
+	CColor Scale(float _r) {
+		return CColor(m_rgb[0]*_r, m_rgb[1]*_r, m_rgb[2]*_r);
+	}
+
+	CColor Multiply(CColor _c) {
+		return CColor(m_rgb[0]*_c.m_rgb[0], m_rgb[1]*_c.m_rgb[1], m_rgb[2]*_c.m_rgb[2]);
+	}
+
+	bool IsBlack() {
+		return (m_rgb[0] < EPS && m_rgb[0] > -EPS  && m_rgb[1] < EPS && m_rgb[1] > -EPS 
+			&& m_rgb[2] < EPS && m_rgb[2] > -EPS);
+	}
 	void Print() {
 		printf("(R, G, B) = (%3.3f, %3.3f, %3.3f)\n", m_rgb[0], m_rgb[1], m_rgb[2]);
 	}
@@ -486,6 +510,14 @@ public:
 //BRDF and Material
 //***************************************************
 class CBRDF{
+public: 
+	CBRDF() {
+		ka = CColor(0.0f, 0.0f, 0.0f);
+		kd = CColor(0.0f, 0.0f, 0.0f);
+		ks = CColor(0.0f, 0.0f, 0.0f);
+		kr = CColor(0.0f, 0.0f, 0.0f);
+		p = 0.0f; 
+	}
 public:
 	CColor ka, kd, ks;
 	CColor kr;
@@ -522,6 +554,7 @@ class CIntersection {
 public: 
 	CLocalGeo m_localGeo;
 	CPrimitive* m_prim; 
+	int m_id; 
 };
 
 
@@ -548,9 +581,11 @@ public:
 	bool intersect(CRay& _ray, float* _thit, CIntersection* _in) {
 		CRay oray = m_worldToObj.Ray(_ray);
 		CLocalGeo olocal; 
-		if (!m_shape->intersect(oray, _thit, &olocal)) 
+		int id = -1;
+		if (!m_shape->intersect(oray, _thit, &olocal, id)) 
 			return false;
 		_in->m_prim = this;
+		_in->m_id = id; 
 		_in->m_localGeo = m_objToWorld.LocalGeo(olocal);
 		return true; 
 	}
@@ -581,11 +616,13 @@ public:
 
 	bool intersect(CRay& _ray, float* _thit, CIntersection* _in) {
 		float min_t = _ray.m_t_max + 1; 
+		//_id = -1; 
 		//CIntersection* min_in = NULL; 
 		bool flag = false; 
 		FOR (i, m_numPrims) {
 			float t = 1e10f; 
 			CIntersection in; // = new CIntersection(); 
+			int id = -1; 
 			if (m_primVec[i]->intersect(_ray, &t, &in)) {
 				flag = true; 
 				if (t <= min_t) {
@@ -657,10 +694,10 @@ public:
 	}
 
 	// normalize light dir vector chech if direction is right????
-	void generateLightRay(CLocalGeo& local, CRay* lray, CColor* lcolor) {
+	void generateLightRay(CLocalGeo& local, CRay* lray, CColor* lcolor, int _id) {
 		*lcolor = m_color;
 		if (m_type == Point) {
-			lray->m_pos = local.m_pos + EPS_SELF * local.m_n; 
+			lray->m_pos = local.m_pos; 
 			lray->m_dir = m_dir - local.m_pos;
 			lray->m_t_min = 0.0f; //1e-6;
 			lray->m_t_max = lray->m_dir.norm();
@@ -668,17 +705,18 @@ public:
 
 			lray->m_ray_start = lray->m_pos;
 			lray->m_ray_end = m_dir;
+			lray->m_id = _id;
 		} 
 
 		if (m_type == Directional) {
-			lray->m_pos = local.m_pos + EPS_SELF * local.m_n; 
+			lray->m_pos = local.m_pos; 
 			lray->m_dir = m_dir / m_dir.norm();
 
 			lray->m_t_min = 0.0f; 
 			lray->m_t_max = INF; 
 			lray->m_ray_start = lray->m_pos; 
 			lray->m_ray_end = V3f(INF, INF, INF); //local.m_pos;
-
+			lray->m_id = _id;
 			// lray->m_t_min=0;
 			// lray->m_t_max=INF;
 
@@ -692,6 +730,28 @@ public:
 	Vector3f m_dir;        //  location/position/direction
 	CColor m_color;    // light color
 };
+
+// global variables
+vector<CLight*> g_lights; 
+CPrimitive* g_scene; 
+int g_width; 
+int g_height; 
+int g_over_sample; 
+int g_max_depth; 
+string g_fname; 
+V3f g_eye; //(0,0,10);
+//int w = 1024; 
+//int h = w;
+V3f g_LL;//(-10, -10, 0); 
+V3f g_UL;//(-10,10, 0); 
+V3f g_LR;//((10, -10, 0);
+V3f	g_UR;//(10, 10, 0);
+int g_debugX; 
+int g_debugY; 
+bool g_cameraOld; 
+V3f g_lookat; 
+V3f g_lookup;
+float g_fov; 
 
 
 class CRayTracer {
@@ -752,12 +812,14 @@ private:
 		return c_all; 
 	}
 
-	CRay createReflectRay(CLocalGeo& _local, CRay& _ray) {
+	CRay createReflectRay(CLocalGeo& _local, CRay& _ray, int id) {
 		V3f n = _local.m_n;
 		V3f r = (n * 2 *_ray.m_dir.dot(n))- _ray.m_dir;
 		//V3f pos = _local.m_pos + n * EPS_SELF; 
 		V3f pos = _local.m_pos; 
-		return CRay(pos, r, 1e-4f, INF);
+		CRay ray(pos, r, 0, INF); 
+		ray.m_id = id; 
+		return ray;
 	}
 
 public: 
@@ -769,20 +831,16 @@ public:
 	}
 
 	void trace(CRay& ray, int depth, CColor* color) {
-		if (depth > NUM_DEPTH) {
+		if (depth > g_max_depth) {
 			// Make the color black and return
-			color->m_rgb[0] = 0.0; 
-			color->m_rgb[1] = 0.0; 
-			color->m_rgb[2] = 0.0; 
+			*color = CColor(0.0f, 0.0f, 0.0f);
 			return; 
 		}
 
 		float thit; 
 		CIntersection in;
 		if (!m_scene->intersect(ray, &thit, &in)) {
-			color->m_rgb[0] = 0.0; 
-			color->m_rgb[1] = 0.0; 
-			color->m_rgb[2] = 0.0; 
+			*color = CColor(0.0f, 0.0f, 0.0f);
 			return; 
 		}
 
@@ -794,7 +852,7 @@ public:
 			CColor lcolor;
 			//cout << in.m_localGeo.m_pos << endl; 
 			//cout << in.m_localGeo.m_n << endl; 
-			m_lights[i]->generateLightRay(in.m_localGeo, &lray, &lcolor);
+			m_lights[i]->generateLightRay(in.m_localGeo, &lray, &lcolor, in.m_id);
 			//lray.Print();
 			if (!m_scene->intersectP(lray)) { //If not, do shading calculation for this light source
 				// bug
@@ -805,20 +863,22 @@ public:
 		}
 
 		// Handle mirror reflection
-		if (brdf.kr.m_rgb[0] > 0 
-			|| brdf.kr.m_rgb[1] > 0 
-			|| brdf.kr.m_rgb[2] > 0) {
-			CRay reflectRay = createReflectRay(in.m_localGeo, ray);
+		if (!brdf.kr.IsBlack()) {
+			CRay reflectRay = createReflectRay(in.m_localGeo, ray, in.m_id);
 			//Make a recursive call to trace the reflected ray
 			CColor tempColor; 
 			trace(reflectRay, depth+1, &tempColor);
-			color->m_rgb[0] += tempColor.m_rgb[0] * brdf.kr.m_rgb[0];
-			color->m_rgb[1] += tempColor.m_rgb[1] * brdf.kr.m_rgb[1];
-			color->m_rgb[2] += tempColor.m_rgb[2] * brdf.kr.m_rgb[2];
+			*color = color->Add(tempColor.Multiply(brdf.kr));
 		}
 
 	}
 };
+
+
+
+
+
+
 //*************************************
 //Camera (eye and screen and ray)
 //******************************************
@@ -854,9 +914,9 @@ public:
 
 			Vector3f Right=Dir.cross(Up);
 			Right=Right/Right.norm();
-			
 
-			
+
+
 			float asp_ratio=((float)_w)/_h;
 
 			m_height=2 * tan(FOV_angle/(2*180)*PI);
@@ -898,7 +958,7 @@ public:
 
 	}
 
-	void Change(Vector3f _eye, float FOV_angle, Vector3f LookAt, Vector3f Up, int _w, int _h){
+	void Change(Vector3f _eye, float FOV_angle, Vector3f LookAt, Vector3f UpX, Vector3f UpY, int _w, int _h){
 			m_eye = _eye;
 			m_w = _w;
 			m_h = _h;
@@ -910,25 +970,20 @@ public:
 			m_center= _eye + Dir;
 
 			//up vectors of the screen, normalized
-			Up=Up/Up.norm();
-
-			Vector3f Right=Dir.cross(Up);
-			Right=Right/Right.norm();
-			
+			UpX=UpX/UpX.norm();
+			UpY=UpY/UpY.norm();
 
 			
 			float asp_ratio=((float)_w)/_h;
 
-			m_height=2 * tan(FOV_angle/(2*180)*PI);
+			m_height=2 *tan(FOV_angle/(2*180*PI));
 
 			m_width = m_height*asp_ratio;
 
-			UR = m_center + m_width/2*Right + m_height/2*Up;
-			LR = m_center + m_width/2*Right - m_height/2*Up;
-			UL = m_center - m_width/2*Right + m_height/2*Up;
-			LL = m_center - m_width/2*Right - m_height/2*Up;
-
-			// cout << LL << LR << UL << UR << endl;
+			UR = m_center + m_width/2*UpX + m_height/2*UpY;
+			LR = m_center + m_width/2*UpX - m_height/2*UpY;
+			UL = m_center - m_width/2*UpX + m_height/2*UpY;
+			LL = m_center - m_width/2*UpX - m_height/2*UpY;
 
 			//make sure direction is right
 			//normal pointing toward eye
@@ -941,11 +996,12 @@ public:
 	}
 
 	void ColorPixel(int i, int j, CColor color){
-		float mag = 255.0f; 
+		//float mag = 255.0f; 
 		//color.Print(); 
-		m_pixel[i*m_w+j].m_color.m_rgb[0]=color.m_rgb[0]*mag;
-		m_pixel[i*m_w+j].m_color.m_rgb[1]=color.m_rgb[1]*mag;
-		m_pixel[i*m_w+j].m_color.m_rgb[2]=color.m_rgb[2]*mag;
+		//m_pixel[i*m_w+j].m_color.m_rgb[0]=color.m_rgb[0]*mag;
+		//m_pixel[i*m_w+j].m_color.m_rgb[1]=color.m_rgb[1]*mag;
+		//m_pixel[i*m_w+j].m_color.m_rgb[2]=color.m_rgb[2]*mag;
+		m_pixel[i*m_w+j].m_color = color;
 	/*	if (m_pixel[i*m_w+j].m_color.m_rgb[0] > 0 ||
 			m_pixel[i*m_w+j].m_color.m_rgb[1] > 0|| 
 			m_pixel[i*m_w+j].m_color.m_rgb[2] > 0) {
@@ -1022,7 +1078,7 @@ private:
 
 public:
 
-	bool Sample(int depth, int over_sample_ratio, SamplerType s){
+	bool Sample(int over_sample_ratio, SamplerType s){
 		m_sample=new Vector3f[m_w*m_h*over_sample_ratio*over_sample_ratio];
 		if (s==OverS){
 			OverSampler(m_sample, over_sample_ratio);
@@ -1038,12 +1094,14 @@ public:
 		//float t_min, t_max;
 		//CRayTracer ray_tracer;
 		float num_samples = (float) over_sample_ratio * over_sample_ratio; 
+		num_samples = 1.0f/num_samples;
+
 		//#pragma omp parallel for
 		for(int i=0; i< m_h; i++) {
 			for(int j=0; j<m_w; j++){
-				// if (i == 250 && j == 250){
-				// 	int t=1; 
-				// }
+				if ((i != g_debugY || j != g_debugX) && (g_debugX >= 0 && g_debugY>=0)){
+					continue; 
+				}
 				CColor temp(0.0f, 0.0f, 0.0f);
 				Vector3f pos, dir;
 				for(int k=i*over_sample_ratio; k<(i+1)*over_sample_ratio;k++) {
@@ -1053,9 +1111,10 @@ public:
 
 						//CRay ray(pos, dir, dir.norm(), INF);
 						CRay ray(pos, dir, EPS, INF);
+						ray.m_id = -1;
 						CColor ray_color;
 
-						m_rayTracer->trace(ray, depth, &ray_color);  //check ???? if ray_tracer behave right???
+						m_rayTracer->trace(ray, 0, &ray_color);  //check ???? if ray_tracer behave right???
 						temp = temp.Add(ray_color);		///completed cumulated oversampling
 
 					}
@@ -1065,16 +1124,13 @@ public:
 
 				}
 
-				//temp.Print();
-				temp.m_rgb[0] /=num_samples;
-				temp.m_rgb[1] /= num_samples;
-				temp.m_rgb[2] /= num_samples;
-				/*if (temp.m_rgb[0] > 0.0 ||
-					temp.m_rgb[1] > 0.0 ||
-					temp.m_rgb[2] > 0.0) {
+				
+				float mag = 255.0f; 
+				temp = temp.Scale(num_samples * mag);
+				
+				if (i == g_debugY && j == g_debugX)
 					temp.Print();
-				}*/
-
+				//temp.Print();
 				ColorPixel(i,j,temp);
 
 			/*	m_pixel[i*m_w+j].m_color =  m_pixel[i*m_w+j].m_color.Add(temp);
@@ -1140,14 +1196,15 @@ CPrimitive* InitScene() {
 	prim1->m_objToWorld = T; 
 	prim1->m_worldToObj = T; 
 	prim1->m_mat = new CMaterial(brdf); 
-	prim1->m_shape = new CSphere(V3f(-0.0f, -0.0f, -0.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
+	prim1->m_shape = new CSphere(V3f(-5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -5.0f), V3f(5.0, 0.0, -5.0f), V3f(0.0, 5.0f, -5.0f));//new CSphere(V3f(-6.0f, 0.0f, -5.0f), 5.0f);
 	primList.push_back(prim1);
 	CGeometricPrimitive* prim2 = new CGeometricPrimitive(); 
-	prim2->m_objToWorld = T; prim2->m_worldToObj = T; 
+	prim2->m_objToWorld = T; 
+	prim2->m_worldToObj = T; 
 	brdf.kd =  CColor(0.0f, 1.0f, 0.0f);   // diffuse
 	prim2->m_mat = new CMaterial(brdf); 
 	prim2->m_shape = new CSphere(V3f(5.0f, -0.0f, -5.0f), 5.0f);// new CTriangle(V3f(0.0f, 0.0f, -10.0f), V3f(15.0, 0.0, -10.0f), V3f(0.0, 15.0f, -10.0f));
-	// primList.push_back(prim2);
+	primList.push_back(prim2);
 
 	CAggregatePrimitive* scene = new CAggregatePrimitive(primList);
 	//scene->m_objToWorld = CTransformation();
@@ -1160,11 +1217,6 @@ CPrimitive* InitScene() {
 	return (CPrimitive*)scene; 	
 }
 
-
-void ParseObject() {
-
-}
-
 vector<CLight*> InitLights() {
 	vector<CLight*> lights; 
 	CLight* light1 = new CLight(V3f(0.0f, 0.0f, 50.0f), CColor(1.0f, 1.0f, 1.0f), CLight::Point);
@@ -1172,65 +1224,420 @@ vector<CLight*> InitLights() {
 	return lights; 
 }
 
+
+
+void loadScene(string file) {
+  //store variables and set stuff at the end
+  g_cameraOld = false; 
+  int shapeId = 0; 
+  g_lights.clear(); 
+  vector<CPrimitive*> prims; 
+  vector<V3f> vertices; 
+  vertices.clear(); 
+  CBRDF brdf; 
+  CTransformation M; 
+  g_fname = "output.bmp";
+  g_over_sample = 1; 
+  g_max_depth = 1; 
+  g_debugY = -1;
+  g_debugY = -1; 
+
+  std::ifstream inpfile(file.c_str());
+  if(!inpfile.is_open()) {
+    std::cout << "Unable to open file" << std::endl;
+  } else {
+    std::string line;
+    //MatrixStack mst;
+
+    while(inpfile.good()) {
+
+      std::vector<std::string> splitline;
+      std::string buf;
+	   
+      std::getline(inpfile,line);
+      std::stringstream ss(line);
+
+      while (ss >> buf) {
+        splitline.push_back(buf);
+      }
+      //Ignore blank lines
+      if(splitline.size() == 0) {
+        continue;
+      }
+
+      //Ignore comments
+      if(splitline[0][0] == '#') {
+        continue;
+      }
+
+      //Valid commands:
+      //size width height
+      //  must be first command of file, controls image size
+      else if(!splitline[0].compare("size")) {
+        g_width = atoi(splitline[1].c_str());
+        g_height = atoi(splitline[2].c_str());
+      }
+      //maxdepth depth
+      //  max # of bounces for ray (default 5)
+      else if(!splitline[0].compare("maxdepth")) {
+        // maxdepth: atoi(splitline[1].c_str())
+      }
+      //output filename
+      //  output file to write image to 
+      else if(!splitline[0].compare("output")) {
+        g_fname = splitline[1];
+      }
+	  else if(!splitline[0].compare("depth")) {
+		  g_max_depth = atoi(splitline[1].c_str());
+	  }
+	  else if (!splitline[0].compare("sample")) {
+		  g_over_sample = atoi(splitline[1].c_str());
+	  } 
+	  else if (!splitline[0].compare("debug")) {
+		  g_debugX = atoi(splitline[1].c_str());  // 25
+		  g_debugY = atoi(splitline[2].c_str());  // 102
+		  g_debugY = g_height - g_debugY - 1;
+	  }
+      //camera lookfromx lookfromy lookfromz lookatx lookaty lookatz upx upy upz fov
+      //  specifies the camera in the standard way, as in homework 2.
+	  else if (!splitline[0].compare("camera")) {
+		  g_cameraOld = false; 
+		  float x = (float)atof(splitline[1].c_str());
+		  float y = (float)atof(splitline[2].c_str());
+		  float z = (float)atof(splitline[3].c_str());
+		  g_eye = V3f(x,y,z);
+
+		  x = (float)atof(splitline[4].c_str());
+		  y = (float)atof(splitline[5].c_str());
+          z = (float)atof(splitline[6].c_str());
+		  g_lookat = V3f(x,y,z);
+        // up:
+		  x = (float)atof(splitline[7].c_str());
+		  y = (float)atof(splitline[8].c_str());
+		  z = (float)atof(splitline[9].c_str());
+		  g_lookup = V3f(x,y,z);
+          g_fov = (float)atof(splitline[10].c_str());
+	  }
+      else if(!splitline[0].compare("camera_old")) {
+		  g_cameraOld = true; 
+        // lookfrom:
+        float x = (float)atof(splitline[1].c_str());
+        float y = (float)atof(splitline[2].c_str());
+        float z = (float)atof(splitline[3].c_str());
+		g_eye = V3f(x,y,z);
+	
+		float left = (float)atof(splitline[4].c_str());
+		float right = (float)atof(splitline[5].c_str());
+		float low = (float)atof(splitline[6].c_str());
+		float upper = (float)atof(splitline[7].c_str());
+		g_LL = V3f(left, low, 0); 
+		g_UL = V3f(left, upper, 0); 
+		g_LR = V3f(right, low, 0); 
+		g_UR = V3f(right, upper, 0);  
+        // lookat:
+      /*  x = (float)atof(splitline[4].c_str());
+        y = (float)atof(splitline[5].c_str());
+        z = (float)atof(splitline[6].c_str());
+		V3f lookat(x,y,z);*/
+        // up:
+		/*x = (float)atof(splitline[7].c_str());
+        y = (float)atof(splitline[8].c_str());
+		z = (float)atof(splitline[9].c_str());
+		V3f up(x,y,z);
+        float fov = atof(splitline[10].c_str());*/
+      }
+
+      //sphere x y z radius
+      //  Deﬁnes a sphere with a given position and radius.
+      else if(!splitline[0].compare("sphere")) {
+		 CGeometricPrimitive* sphere = new CGeometricPrimitive(); 
+		 sphere->m_worldToObj = M; 
+		 sphere->m_objToWorld = M; // BUG
+         float x = (float)atof(splitline[1].c_str());
+         float y = (float)atof(splitline[2].c_str());
+         float z = (float)atof(splitline[3].c_str());
+         float r = (float)atof(splitline[4].c_str());
+		 sphere->m_mat = new CMaterial(brdf);
+		 sphere->m_shape = new CSphere(V3f(x, y, z), r);
+		 sphere->m_shape->m_id = shapeId; 
+		 shapeId++;
+		 prims.push_back(sphere);
+        // Create new sphere:
+        //   Store 4 numbers
+        //   Store current property values
+        //   Store current top of matrix stack
+      }
+      //maxverts number
+      //  Deﬁnes a maximum number of vertices for later triangle speciﬁcations. 
+      //  It must be set before vertices are deﬁned.
+      else if(!splitline[0].compare("maxverts")) {
+        // Care if you want
+        // Here, either declare array size
+        // Or you can just use a STL vector, in which case you can ignore this
+      }
+      //maxvertnorms number
+      //  Deﬁnes a maximum number of vertices with normals for later speciﬁcations.
+      //  It must be set before vertices with normals are deﬁned.
+      else if(!splitline[0].compare("maxvertnorms")) {
+        // Care if you want
+      }
+      //vertex x y z
+      //  Deﬁnes a vertex at the given location.
+      //  The vertex is put into a pile, starting to be numbered at 0.
+      else if(!splitline[0].compare("vertex")) {
+
+        float x = (float)atof(splitline[1].c_str());
+        float y = (float)atof(splitline[2].c_str());
+        float z = (float)atof(splitline[3].c_str());
+		vertices.push_back(V3f(x, y, z));
+
+        // Create a new vertex with these 3 values, store in some array
+      }
+      //vertexnormal x y z nx ny nz
+      //  Similar to the above, but deﬁne a surface normal with each vertex.
+      //  The vertex and vertexnormal set of vertices are completely independent
+      //  (as are maxverts and maxvertnorms).
+      else if(!splitline[0].compare("vertexnormal")) {
+        // x: atof(splitline[1].c_str()),
+        // y: atof(splitline[2].c_str()),
+        // z: atof(splitline[3].c_str()));
+        // nx: atof(splitline[4].c_str()),
+        // ny: atof(splitline[5].c_str()),
+        // nz: atof(splitline[6].c_str()));
+        // Create a new vertex+normal with these 6 values, store in some array
+      }
+      //tri v1 v2 v3
+      //  Create a triangle out of the vertices involved (which have previously been speciﬁed with
+      //  the vertex command). The vertices are assumed to be speciﬁed in counter-clockwise order. Your code
+      //  should internally compute a face normal for this triangle.
+      else if(!splitline[0].compare("tri")) {
+        int i = (int)atof(splitline[1].c_str());
+        int j = (int)atof(splitline[2].c_str());
+        int k = (int)atof(splitline[3].c_str());
+		CGeometricPrimitive* tri = new CGeometricPrimitive(); 
+		tri->m_worldToObj = M; 
+		tri->m_objToWorld = M; // BUG
+		CBRDF tmp = brdf; 
+		//tmp.ka = CColor(1,0,0);
+		tri->m_mat = new CMaterial(tmp);
+		//cout << i << " " << j << " " << k << endl; 
+		//cout << "ka: " << brdf.ka.m_rgb[0] << " " << brdf.ka.m_rgb[1] << " " << brdf.ka.m_rgb[2] << endl; 
+		tri->m_shape = new CTriangle(vertices[i], vertices[j], vertices[k]);
+		tri->m_shape->m_id = shapeId;
+		shapeId++;
+		prims.push_back(tri);
+        // Create new triangle:
+        //   Store pointer to array of vertices
+        //   Store 3 integers to index into array
+        //   Store current property values
+        //   Store current top of matrix stack
+      }
+      //trinormal v1 v2 v3
+      //  Same as above but for vertices speciﬁed with normals.
+      //  In this case, each vertex has an associated normal, 
+      //  and when doing shading, you should interpolate the normals 
+      //  for intermediate points on the triangle.
+      else if(!splitline[0].compare("trinormal")) {
+        // v1: atof(splitline[1].c_str())
+        // v2: atof(splitline[2].c_str())
+        // v3: atof(splitline[3].c_str())
+        // Create new triangle:
+        //   Store pointer to array of vertices (Different array than above)
+        //   Store 3 integers to index into array
+        //   Store current property values
+        //   Store current top of matrix stack
+      }
+
+      //translate x y z
+      //  A translation 3-vector
+      else if(!splitline[0].compare("translate")) { //TO-DO
+        float x = (float)atof(splitline[1].c_str()); 
+        float y = (float)atof(splitline[2].c_str());
+        float z = (float)atof(splitline[3].c_str());
+		
+        // Update top of matrix stack
+      }
+      //rotate x y z angle
+      //  Rotate by angle (in degrees) about the given axis as in OpenGL.
+      else if(!splitline[0].compare("rotate")) { //TO-DO 
+        float x = (float)atof(splitline[1].c_str());
+        float y = (float)atof(splitline[2].c_str());
+        float z = (float)atof(splitline[3].c_str());
+        float angle = (float)atof(splitline[4].c_str());
+        // Update top of matrix stack
+      }
+      //scale x y z
+      //  Scale by the corresponding amount in each axis (a non-uniform scaling).
+      else if(!splitline[0].compare("scale")) {
+        float x = (float)atof(splitline[1].c_str());
+        float y = (float)atof(splitline[2].c_str());
+        float z = (float)atof(splitline[3].c_str());
+        // Update top of matrix stack
+      }
+      //pushTransform
+      //  Push the current modeling transform on the stack as in OpenGL. 
+      //  You might want to do pushTransform immediately after setting 
+      //   the camera to preserve the “identity” transformation.
+      else if(!splitline[0].compare("pushTransform")) {
+        //mst.push();
+      }
+      //popTransform
+      //  Pop the current transform from the stack as in OpenGL. 
+      //  The sequence of popTransform and pushTransform can be used if 
+      //  desired before every primitive to reset the transformation 
+      //  (assuming the initial camera transformation is on the stack as 
+      //  discussed above).
+      else if(!splitline[0].compare("popTransform")) {
+        //mst.pop();
+      }
+
+      //directional x y z r g b
+      //  The direction to the light source, and the color, as in OpenGL.
+      else if(!splitline[0].compare("directional")) {
+        float x = (float)atof(splitline[1].c_str()); 
+        float y = (float)atof(splitline[2].c_str());
+        float z = (float)atof(splitline[3].c_str());
+        float r = (float)atof(splitline[4].c_str());
+        float g = (float)atof(splitline[5].c_str());
+        float b = (float)atof(splitline[6].c_str());
+		CLight* light = new CLight(V3f(x, y, z), CColor(r, g, b), CLight::Directional);
+		g_lights.push_back(light);
+        // add light to scene...
+      }
+      //point x y z r g b
+      //  The location of a point source and the color, as in OpenGL.
+      else if(!splitline[0].compare("point")) {
+		  float x = (float)atof(splitline[1].c_str()); 
+		  float y = (float)atof(splitline[2].c_str());
+		  float z = (float)atof(splitline[3].c_str());
+		  float r = (float)atof(splitline[4].c_str());
+		  float g = (float)atof(splitline[5].c_str());
+		  float b = (float)atof(splitline[6].c_str());
+		  CLight* light = new CLight(V3f(x, y, z), CColor(r, g, b), CLight::Point);
+		  g_lights.push_back(light);
+        // add light to scene...
+      }
+      //attenuation const linear quadratic
+      //  Sets the constant, linear and quadratic attenuations 
+      //  (default 1,0,0) as in OpenGL.
+      else if(!splitline[0].compare("attenuation")) {
+        // const: atof(splitline[1].c_str())
+        // linear: atof(splitline[2].c_str())
+        // quadratic: atof(splitline[3].c_str())
+      }
+      //ambient r g b
+      //  The global ambient color to be added for each object 
+      //  (default is .2,.2,.2)
+      else if(!splitline[0].compare("ambient")) {
+        float r = (float)atof(splitline[1].c_str());
+        float g = (float)atof(splitline[2].c_str());
+        float b = (float)atof(splitline[3].c_str());
+		brdf.ka =CColor(r,g,b);
+		//brdf.ka = CColor(1,1,1);
+      }
+
+      //diﬀuse r g b
+      //  speciﬁes the diﬀuse color of the surface.
+      else if(!splitline[0].compare("diffuse")) {
+		  float r = (float)atof(splitline[1].c_str());
+		  float g = (float)atof(splitline[2].c_str());
+		  float b = (float)atof(splitline[3].c_str());
+		  brdf.kd = CColor(r,g,b);
+		 
+        // Update current properties
+      }
+      //specular r g b 
+      //  speciﬁes the specular color of the surface.
+      else if(!splitline[0].compare("specular")) {
+		  float r = (float)atof(splitline[1].c_str());
+		  float g = (float)atof(splitline[2].c_str());
+		  float b = (float)atof(splitline[3].c_str());
+		  brdf.ks = CColor(r,g,b);
+        // Update current properties
+      }
+      //shininess s
+      //  speciﬁes the shininess of the surface.
+      else if(!splitline[0].compare("shininess")) {
+        float p = (float)atof(splitline[1].c_str());
+		brdf.p = p; 
+        // Update current properties
+      }
+      //emission r g b
+      //  gives the emissive color of the surface.
+      else if(!splitline[0].compare("reflect")) {
+         float r = (float)atof(splitline[1].c_str());
+         float g = (float)atof(splitline[2].c_str());
+         float b = (float)atof(splitline[3].c_str());
+		 brdf.kr = CColor(r, g,b);
+        // Update current properties
+      } else {
+        std::cerr << "Unknown command: " << splitline[0] << std::endl;
+      }
+    }
+
+    inpfile.close();
+  }
+
+  vertices.clear(); 
+  g_scene = new CAggregatePrimitive(prims); 
+}
+
+
+
+
+
+
 int main(int argc, char *argv[]){
-	//CTimer* timer = new CTimer("ray tracing");
-	//Matrix3f m3;
-	//m3 << 1, 2, 3, 4, 5, 6, 7, 8, 9;
-	//Matrix4f m4=Matrix4f::Identity();
+	if (argc != 2) {
+		printf("invalid input\n");
+		exit(-1);
+	}
 
-	//Vector3f p_ray(0.0f,0.0f,0.0f), d_ray(0.0f,0.0f,0.0f), p_point(1.9f, 1.9f, 0.0f);
-	//CRay ray(p_ray, d_ray, 1, 10);
-
-
-
-	//cout<< ray.m_ray_start<< "\n\n" << ray.m_ray_end
-	//	<<"\n\n"<<p_point<<"\n\n"
-	//	<<ray.hasPoint(p_point, .1f)<<endl;
-
-
-
+	loadScene(string(argv[1]));
+	/*Vector3f eye(0,0,50);
 	int w = 500; 
-	int h = 200;
-	// Vector3f LL(-10, -4, 0), UL(-10,4, 0),
-	// 	LR(10, -4, 0), UR(10, 4, 0);
-	int over_sample_ratio=3;
+	int h = 500;
+	Vector3f LL(-10, -10, 0), UL(-10,10, 0),
+	 	LR(10, -10, 0), UR(10, 10, 0);*/
+	//int over_sample_ratio = 2;
 	// CColor pixel(1,0,0);
 
-	float FOV_angle=45.0f;
+	//float FOV_angle=90.0f;
+	//Vector3f UpX(1,0,0);
+	//Vector3f UpY(0,1,0);
+	//Vector3f LookAt(0, 0, 0); 
 
-	// Vector3f eye(0,0,50);
-	// Vector3f UpX(1,0,0);
-	// Vector3f UpY(0,1,0);
-	// Vector3f LookAt(0, 0, 0);
+	CCamera* camera = NULL; 
+	if (g_cameraOld)
+		camera = new CCamera(g_eye, g_width, g_height, g_LL, g_UL, g_LR, g_UR);
+	else
+		camera = new CCamera(g_eye, g_fov, g_lookat, g_lookup, g_width, g_height);
+	 //CCamera camera(eye, w, h, LL, UL, LR, UR);
 
-	Vector3f eye(0,50,0);
-	Vector3f Up(0, 0, -1);
-	Vector3f LookAt(0, 0, 0);
-
-	// CCamera camera(eye, w, h, LL, UL, LR, UR);
-
-	CCamera camera(eye, FOV_angle, LookAt, Up, w, h);
+	//CCamera camera(eye, FOV_angle, LookAt, UpX, UpY, w, h);
 		
 
 
 	CRayTracer* rayTracer = new CRayTracer(); 
-	vector<CLight*> lights = InitLights(); 
-	CPrimitive* scene = InitScene(); 
-	rayTracer->Setup(scene, lights);
-	camera.SetupRayTracer(rayTracer);
+	// setup
+	//g_lights = InitLights(); 
+	//g_scene = InitScene(); 
+	rayTracer->Setup(g_scene, g_lights);
+	camera->SetupRayTracer(rayTracer);
 	// omp_set_num_threads(12);
 
 
-	camera.Sample(1, over_sample_ratio, CCamera::OverS);
+	camera->Sample(g_over_sample, CCamera::OverS);
 	//DELETE_OBJECT(timer);
 
 
-	camera.Film();
+	camera->Film();
 
-	FOR_u (i, lights.size())
-		DELETE_OBJECT(lights[i]);
+	FOR_u (i, g_lights.size())
+		DELETE_OBJECT(g_lights[i]);
 
-	DELETE_OBJECT(scene);
+	DELETE_OBJECT(camera);
+	DELETE_OBJECT(g_scene);
 	DELETE_OBJECT(rayTracer);
 	return 0;
 
